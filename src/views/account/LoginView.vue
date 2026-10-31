@@ -31,7 +31,11 @@ async function submit() {
       <BackLink />
       <p class="eyebrow">Espace client</p>
       <h1>Connexion</h1>
-      <p class="hint">Pour suivre vos commandes. Vous cherchez l'espace de gestion de Genni ? C'est par ici : <RouterLink to="/admin/connexion">Espace Genni</RouterLink>.</p>
+      <p class="hint">Pour suivre vos commandes en tant que client.</p>
+      <p class="pro-callout">
+        🧑‍🌾 Vous êtes Genni et voulez gérer vos commandes/articles ?
+        <RouterLink to="/admin/connexion">Allez plutôt sur l'Espace Genni →</RouterLink>
+      </p>
 
       <form class="auth-form" @submit.prevent="submit">
         <label>
@@ -74,12 +78,23 @@ h1 {
 .hint {
   font-size: 13px;
   color: var(--muted);
+  margin: 0 0 12px;
+}
+
+.pro-callout {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--green-dark);
+  background: #e4ecdf;
+  border: 1.5px solid var(--green);
+  border-radius: 10px;
+  padding: 12px 14px;
   margin: 0 0 24px;
 }
 
-.hint a {
-  color: var(--clay-dark);
-  font-weight: 600;
+.pro-callout a {
+  color: var(--green-dark);
+  text-decoration: underline;
 }
 
 .auth-form {

@@ -306,6 +306,13 @@ app.post("/api/auth/login", async (req, res) => {
     const { rows } = await query("SELECT * FROM customers WHERE email = $1", [email]);
     const customer = rows[0];
     if (!customer || !(await bcrypt.compare(password, customer.password_hash))) {
+      const { rows: adminRows } = await query("SELECT id FROM admins WHERE email = $1", [email]);
+      if (adminRows[0]) {
+        return res.status(401).json({
+          ok: false,
+          error: "Cet email correspond à un compte Genni (espace pro), pas à un compte client. Utilisez le lien \"Espace Genni\" ci-dessus."
+        });
+      }
       return res.status(401).json({ ok: false, error: "Email ou mot de passe incorrect." });
     }
     const token = signToken({ sub: customer.id, role: "customer" });
@@ -345,6 +352,13 @@ app.post("/api/admin/login", async (req, res) => {
     const { rows } = await query("SELECT * FROM admins WHERE email = $1", [email]);
     const admin = rows[0];
     if (!admin || !(await bcrypt.compare(password, admin.password_hash))) {
+      const { rows: customerRows } = await query("SELECT id FROM customers WHERE email = $1", [email]);
+      if (customerRows[0]) {
+        return res.status(401).json({
+          ok: false,
+          error: "Cet email correspond à un compte client, pas à l'espace Genni. Utilisez la page de connexion client (/compte/connexion)."
+        });
+      }
       return res.status(401).json({ ok: false, error: "Email ou mot de passe incorrect." });
     }
     const token = signToken({ sub: admin.id, role: "admin" });
