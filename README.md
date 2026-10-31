@@ -1,5 +1,77 @@
-# Vue 3 + Vite
+# Les Jardins de Genni
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Site de vente de paniers de fruits et légumes de Martinique : catalogue, commande en ligne (avec ou sans compte), suivi des commandes, et espace pro pour Genni.
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+- **Front** : Vue 3 + Vue Router, construit avec Vite (`src/`)
+- **Serveur** : Express 5 (`app.cjs`, `server.cjs`, `routes/`, `lib/`), qui sert aussi le front construit
+- **Base** : PostgreSQL (migrations SQL dans `migrations/`)
+- **Hébergement visé** : Railway (service Node + Postgres)
+
+## Démarrer en local
+
+Prérequis : Node 22+ et une base Postgres.
+
+```bash
+npm install
+cp .env.example .env        # puis renseigner DATABASE_URL, JWT_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD
+npm run build               # construit le front dans dist/
+npm run start:local         # serveur sur http://localhost:4173 (migre la base au démarrage)
+```
+
+Pour travailler sur le front avec rechargement à chaud, lancez le serveur ci-dessus puis `npm run dev` (Vite). Les appels `/api` doivent alors être redirigés vers le port 4173 (voir `vite.config.js`).
+
+## Commandes
+
+| Commande | Rôle |
+| --- | --- |
+| `npm run dev` | Serveur de développement Vite |
+| `npm run build` | Construit le front (`dist/`) |
+| `npm start` | Lance le serveur (production) |
+| `npm run start:local` | Idem, en chargeant `.env` |
+| `npm test` | Tests unitaires et HTTP (sans base de données : elle est simulée) |
+| `npm run lint` | ESLint |
+
+La CI (`.github/workflows/ci.yml`) lance lint, build et tests à chaque push et pull request.
+
+## Variables d'environnement
+
+Toutes sont décrites dans [.env.example](.env.example). Les indispensables en production :
+
+- `DATABASE_URL` — base Postgres
+- `JWT_SECRET` — **obligatoire** : le serveur refuse de démarrer sans lui en production
+- `ADMIN_EMAIL` / `ADMIN_PASSWORD` — compte de l'espace Genni (changer le mot de passe déconnecte les sessions existantes)
+
+Facultatives mais recommandées : `ORDER_SMTP_*` + `ORDER_NOTIFY_EMAIL` (emails de commande et de suivi) et `SITE_URL` (URL publique pour le sitemap et les aperçus WhatsApp).
+
+## Architecture
+
+```
+app.cjs / server.cjs     création de l'app Express / démarrage + migrations
+routes/                  catalogue, commandes, compte client, admin (par ressource)
+lib/                     prix et remises (pricing), images, emails, SEO, limitation de débit
+migrations/*.sql         schéma de la base, appliqué dans l'ordre et tracé dans schema_migrations
+src/                     front Vue (views/, components/, stores/, composables/)
+src/data/pages.json      titres et descriptions des pages (front et balises de partage serveur)
+test/                    tests node:test
+scripts/                 outils ponctuels (optimisation des images)
+```
+
+Points à connaître :
+
+- **Prix** : toujours recalculés côté serveur (`lib/pricing.cjs`) ; le front n'envoie que des slugs et des quantités.
+- **Photos** : les photos envoyées par l'admin sont stockées en base64 dans Postgres (pas de volume de fichiers) et servies par `/api/products/:slug/image` et `/api/baskets/:slug/image`, avec un cache long (l'URL change à chaque nouvel envoi). Limite : 3 Mo par photo.
+- **Sessions** : cookies `HttpOnly`, 7 jours pour l'admin et 30 jours pour les clients. Incrémenter `token_version` d'un compte révoque ses sessions (bouton « Déconnecter tous les appareils » côté admin).
+- **Sécurité** : en-têtes `helmet` (CSP), limitation de débit sur la connexion, l'inscription, les commandes et les codes promo, contrôle d'origine sur les requêtes d'écriture.
+- **Partage et SEO** : le serveur injecte titre, description et balises Open Graph dans `index.html` (`lib/seo.cjs`) ; `/robots.txt` et `/sitemap.xml` sont générés.
+
+## Ajouter une migration
+
+Créez `migrations/NNN-description.sql` (numéro suivant, SQL idempotent de préférence). Elle sera appliquée au prochain démarrage, dans une transaction, une seule fois.
+
+## Images
+
+Les images de `public/images/` sont en WebP redimensionné. Pour en ajouter : déposez un JPG/PNG dans ce dossier, lancez `node scripts/optimize-images.cjs`, puis supprimez l'original.
+
+## Contenu à remplacer avant la mise en ligne
+
+`src/data/site.js` contient des **coordonnées de démonstration** : numéro WhatsApp (`596696000000`), email (`contact@lesjardinsdegenni.example`) et commune. La page Contact affiche d'ailleurs un avertissement tant qu'elles ne sont pas remplacées.

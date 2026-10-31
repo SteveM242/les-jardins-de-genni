@@ -8,3 +8,6 @@ dist
 
 # Ancien dossier de photos (désormais stockées en base64 dans Postgres)
 /uploads/
+
+# Variables locales (secrets)
+.env

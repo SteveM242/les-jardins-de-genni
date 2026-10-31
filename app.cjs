@@ -109,7 +109,6 @@ function createApp() {
     res.set("Cache-Control", "no-cache").type("html").send(html);
   });
 
-  // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, _next) => {
     if (err instanceof multer.MulterError || err?.message?.includes("image")) {
       return res.status(400).json({ ok: false, error: "Image invalide ou trop lourde (3 Mo max)." });

@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server.cjs",
-    "test": "node --test \"test/*.test.cjs\""
+    "test": "node --test \"test/*.test.cjs\"",
+    "lint": "eslint .",
+    "start:local": "node --env-file=.env server.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -24,7 +26,11 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@vitejs/plugin-vue": "^6.0.10",
+    "eslint": "^10.14.0",
+    "eslint-plugin-vue": "^10.12.0",
+    "globals": "^17.13.0",
     "sharp": "^0.35.5",
     "vite": "^8.3.5"
   }
