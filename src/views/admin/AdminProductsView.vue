@@ -1,6 +1,11 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
 import AdminNav from "../../components/admin/AdminNav.vue";
+import ImageUploader from "../../components/admin/ImageUploader.vue";
+
+function handleImageUploaded(product, data) {
+  Object.assign(product, data.product);
+}
 
 const CATEGORIES = ["fruit", "légume", "herbes & épices", "autre"];
 const UNITS = ["kg", "pièce", "filet", "barquette", "botte", "sachet", "litre"];
@@ -135,11 +140,18 @@ onMounted(loadProducts);
 
       <div class="products-grid">
         <div v-for="product in grouped[category]" :key="product.id" class="product-card" :class="{ saved: savedId === product.id }">
-          <input
-            class="product-name"
-            v-model.trim="product.name"
-            @change="updateProduct(product, { name: product.name })"
-          />
+          <div class="product-head">
+            <ImageUploader
+              :image-url="product.image"
+              :upload-url="`/api/admin/products/${product.id}/image`"
+              @uploaded="(data) => handleImageUploaded(product, data)"
+            />
+            <input
+              class="product-name"
+              v-model.trim="product.name"
+              @change="updateProduct(product, { name: product.name })"
+            />
+          </div>
 
           <div class="product-row">
             <select v-model="product.category" @change="updateProduct(product, { category: product.category })">
@@ -266,6 +278,7 @@ h1 {
   border-radius: 12px;
   padding: 16px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   transition: box-shadow 150ms ease;
 }
@@ -274,7 +287,15 @@ h1 {
   box-shadow: 0 0 0 2px var(--green);
 }
 
+.product-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .product-name {
+  flex: 1;
+  min-width: 0;
   font: inherit;
   font-weight: 700;
   font-size: 15px;
@@ -331,6 +352,7 @@ h1 {
   gap: 8px;
   padding-top: 10px;
   border-top: 1px solid var(--line);
+  min-width: 0;
 }
 
 .active-toggle {

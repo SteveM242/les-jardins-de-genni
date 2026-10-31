@@ -1,8 +1,10 @@
 const path = require("node:path");
+const fs = require("node:fs");
 const crypto = require("node:crypto");
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const bcrypt = require("bcryptjs");
+const multer = require("multer");
 
 const { query } = require("./db.cjs");
 const { migrate } = require("./migrate.cjs");
@@ -10,10 +12,38 @@ const { signToken, verifyToken, setAuthCookie, clearAuthCookie, requireRole } = 
 
 const app = express();
 const distDir = path.join(__dirname, "dist");
+const uploadsDir = path.join(__dirname, "uploads");
+fs.mkdirSync(uploadsDir, { recursive: true });
 const port = process.env.PORT || 4173;
 
 app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
+app.use("/uploads", express.static(uploadsDir));
+
+const ALLOWED_IMAGE_TYPES = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp"
+};
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: uploadsDir,
+    filename: (_req, file, cb) => {
+      cb(null, `${crypto.randomUUID()}${ALLOWED_IMAGE_TYPES[file.mimetype] || ""}`);
+    }
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    cb(null, Boolean(ALLOWED_IMAGE_TYPES[file.mimetype]));
+  }
+});
+
+function deleteUploadedFile(imagePath) {
+  if (!imagePath || !imagePath.startsWith("/uploads/")) return;
+  const filePath = path.join(uploadsDir, path.basename(imagePath));
+  fs.unlink(filePath, () => {});
+}
 
 function attachCustomer(req, _res, next) {
   const token = req.cookies?.customer_token;
@@ -383,9 +413,28 @@ app.patch("/api/admin/products/:id", requireRole("admin"), async (req, res) => {
 });
 
 app.delete("/api/admin/products/:id", requireRole("admin"), async (req, res) => {
-  await query("DELETE FROM products WHERE id = $1", [req.params.id]);
+  const { rows } = await query("DELETE FROM products WHERE id = $1 RETURNING image", [req.params.id]);
+  if (rows[0]) deleteUploadedFile(rows[0].image);
   res.json({ ok: true });
 });
+
+app.post(
+  "/api/admin/products/:id/image",
+  requireRole("admin"),
+  upload.single("image"),
+  async (req, res) => {
+    if (!req.file) return res.status(400).json({ ok: false, error: "Image invalide (jpg, png ou webp, 5 Mo max)." });
+    const { rows: existing } = await query("SELECT image FROM products WHERE id = $1", [req.params.id]);
+    if (!existing[0]) {
+      deleteUploadedFile(`/uploads/${req.file.filename}`);
+      return res.status(404).json({ ok: false, error: "Article introuvable." });
+    }
+    const imagePath = `/uploads/${req.file.filename}`;
+    const { rows } = await query("UPDATE products SET image = $1 WHERE id = $2 RETURNING *", [imagePath, req.params.id]);
+    deleteUploadedFile(existing[0].image);
+    res.json({ ok: true, product: rows[0] });
+  }
+);
 
 app.get("/api/admin/baskets", requireRole("admin"), async (_req, res) => {
   const { rows } = await query("SELECT * FROM baskets ORDER BY price DESC");
@@ -404,6 +453,24 @@ app.patch("/api/admin/baskets/:id", requireRole("admin"), async (req, res) => {
   if (!rows[0]) return res.status(404).json({ ok: false, error: "Panier introuvable." });
   res.json({ ok: true, basket: rows[0] });
 });
+
+app.post(
+  "/api/admin/baskets/:id/image",
+  requireRole("admin"),
+  upload.single("image"),
+  async (req, res) => {
+    if (!req.file) return res.status(400).json({ ok: false, error: "Image invalide (jpg, png ou webp, 5 Mo max)." });
+    const { rows: existing } = await query("SELECT image FROM baskets WHERE id = $1", [req.params.id]);
+    if (!existing[0]) {
+      deleteUploadedFile(`/uploads/${req.file.filename}`);
+      return res.status(404).json({ ok: false, error: "Panier introuvable." });
+    }
+    const imagePath = `/uploads/${req.file.filename}`;
+    const { rows } = await query("UPDATE baskets SET image = $1 WHERE id = $2 RETURNING *", [imagePath, req.params.id]);
+    deleteUploadedFile(existing[0].image);
+    res.json({ ok: true, basket: rows[0] });
+  }
+);
 
 app.get("/api/admin/discounts", requireRole("admin"), async (_req, res) => {
   const { rows } = await query("SELECT * FROM discount_codes ORDER BY created_at DESC");
@@ -439,6 +506,14 @@ app.patch("/api/admin/discounts/:id", requireRole("admin"), async (req, res) => 
 app.delete("/api/admin/discounts/:id", requireRole("admin"), async (req, res) => {
   await query("DELETE FROM discount_codes WHERE id = $1", [req.params.id]);
   res.json({ ok: true });
+});
+
+app.use((err, _req, res, next) => {
+  if (err instanceof multer.MulterError || err?.message?.includes("image")) {
+    res.status(400).json({ ok: false, error: "Image invalide ou trop lourde (5 Mo max)." });
+    return;
+  }
+  next(err);
 });
 
 // ---------- Statique (SPA) ----------

@@ -50,6 +50,10 @@ function handleAdd(product) {
         <h2>{{ category }}</h2>
         <div class="product-grid">
           <div v-for="product in products" :key="product.slug" class="product-card">
+            <div class="product-media">
+              <img v-if="product.image" :src="product.image" :alt="product.name" loading="lazy" />
+              <span v-else class="product-placeholder" aria-hidden="true">🌿</span>
+            </div>
             <div>
               <h3>{{ product.name }}</h3>
               <p class="product-price">{{ product.price }} € / {{ product.unit }}</p>
@@ -110,11 +114,38 @@ h1 {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 18px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   gap: 14px;
+}
+
+.product-card > div:not(.product-media) {
+  padding: 0 18px;
+}
+
+.product-card .product-actions {
+  padding: 0 18px 18px;
+}
+
+.product-media {
+  height: 100px;
+  background: var(--cream-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-placeholder {
+  font-size: 32px;
+  opacity: 0.6;
 }
 
 .product-card h3 {

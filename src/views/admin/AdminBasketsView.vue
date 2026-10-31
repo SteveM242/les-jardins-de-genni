@@ -1,6 +1,11 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import AdminNav from "../../components/admin/AdminNav.vue";
+import ImageUploader from "../../components/admin/ImageUploader.vue";
+
+function handleImageUploaded(basket, data) {
+  Object.assign(basket, data.basket);
+}
 
 const baskets = ref([]);
 const loading = ref(true);
@@ -34,7 +39,7 @@ onMounted(loadBaskets);
   <AdminNav>
     <h1>Paniers</h1>
     <p class="hint">
-      Modifiez le nom, le prix, le résumé ou la description. Pour changer les photos ou la liste
+      Modifiez le nom, le prix, la photo, le résumé ou la description. Pour changer la liste
       détaillée des articles, contactez votre développeur — cette page couvre les ajustements
       courants.
     </p>
@@ -44,7 +49,11 @@ onMounted(loadBaskets);
     <div v-else class="baskets-grid">
       <div v-for="basket in baskets" :key="basket.id" class="basket-card">
         <div class="basket-card-head">
-          <img :src="basket.image" :alt="basket.name" />
+          <ImageUploader
+            :image-url="basket.image"
+            :upload-url="`/api/admin/baskets/${basket.id}/image`"
+            @uploaded="(data) => handleImageUploaded(basket, data)"
+          />
           <label class="active-toggle">
             <input
               type="checkbox"
@@ -115,14 +124,7 @@ h1 {
 .basket-card-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-}
-
-.basket-card-head img {
-  width: 64px;
-  height: 64px;
-  object-fit: cover;
-  border-radius: 8px;
+  align-items: flex-start;
 }
 
 .active-toggle {
