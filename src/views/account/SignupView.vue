@@ -35,22 +35,22 @@ async function submit() {
       <form class="auth-form" @submit.prevent="submit">
         <label>
           Nom et prénom
-          <input v-model.trim="form.name" type="text" required />
+          <input v-model.trim="form.name" type="text" autocomplete="name" required />
         </label>
         <label>
           Email
-          <input v-model.trim="form.email" type="email" required />
+          <input v-model.trim="form.email" type="email" autocomplete="email" required />
         </label>
         <label>
           Téléphone
-          <input v-model.trim="form.phone" type="tel" />
+          <input v-model.trim="form.phone" type="tel" autocomplete="tel" />
         </label>
         <label>
           Mot de passe (6 caractères min.)
-          <PasswordField v-model="form.password" minlength="6" />
+          <PasswordField v-model="form.password" minlength="6" autocomplete="new-password" />
         </label>
 
-        <p v-if="error" class="form-error">{{ error }}</p>
+        <p v-if="error" class="form-error" role="alert">{{ error }}</p>
 
         <button type="submit" class="btn primary" :disabled="loading">
           {{ loading ? "Création…" : "Créer mon compte" }}

@@ -35,14 +35,14 @@ async function submit() {
       <form class="auth-form" @submit.prevent="submit">
         <label>
           Email
-          <input v-model.trim="form.email" type="email" required />
+          <input v-model.trim="form.email" type="email" autocomplete="username" required />
         </label>
         <label>
           Mot de passe
-          <PasswordField v-model="form.password" />
+          <PasswordField v-model="form.password" autocomplete="current-password" />
         </label>
 
-        <p v-if="error" class="form-error">{{ error }}</p>
+        <p v-if="error" class="form-error" role="alert">{{ error }}</p>
 
         <button type="submit" class="btn primary" :disabled="loading">
           {{ loading ? "Connexion…" : "Se connecter" }}

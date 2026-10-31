@@ -3,7 +3,8 @@ import { ref } from "vue";
 
 defineProps({
   modelValue: { type: String, default: "" },
-  minlength: { type: [String, Number], default: null }
+  minlength: { type: [String, Number], default: null },
+  autocomplete: { type: String, default: "current-password" }
 });
 defineEmits(["update:modelValue"]);
 
@@ -16,6 +17,7 @@ const visible = ref(false);
       :type="visible ? 'text' : 'password'"
       :value="modelValue"
       :minlength="minlength"
+      :autocomplete="autocomplete"
       required
       @input="$emit('update:modelValue', $event.target.value)"
     />
