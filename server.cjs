@@ -547,7 +547,7 @@ app.delete("/api/admin/discounts/:id", requireRole("admin"), async (req, res) =>
 
 app.use((err, _req, res, next) => {
   if (err instanceof multer.MulterError || err?.message?.includes("image")) {
-    res.status(400).json({ ok: false, error: "Image invalide ou trop lourde (5 Mo max)." });
+    res.status(400).json({ ok: false, error: "Image invalide ou trop lourde (3 Mo max)." });
     return;
   }
   next(err);

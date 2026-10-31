@@ -6,5 +6,5 @@ dist
 # Commandes clients (données personnelles) — jamais commitées
 /data/
 
-# Photos uploadées par l'admin — vivent sur le volume Railway, pas dans le repo
+# Ancien dossier de photos (désormais stockées en base64 dans Postgres)
 /uploads/
