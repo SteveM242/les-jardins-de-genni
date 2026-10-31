@@ -4,4 +4,4 @@ dist
 *.log
 
 # Commandes clients (données personnelles) — jamais commitées
-data/
+/data/
