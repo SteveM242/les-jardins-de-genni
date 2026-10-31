@@ -4,6 +4,7 @@ import { useRoute, RouterLink, useRouter } from "vue-router";
 import { useCatalog } from "../stores/catalog.js";
 import { whatsappOrderLink } from "../data/site.js";
 import { useCart } from "../stores/cart.js";
+import LoadError from "../components/LoadError.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -14,7 +15,8 @@ const cart = useCart();
 const qty = ref(1);
 
 function handleAdd() {
-  cart.addItem(panier.value, qty.value);
+  const quantity = Math.min(Math.max(Math.floor(Number(qty.value)) || 1, 1), 50);
+  cart.addItem(panier.value, quantity);
   router.push("/commande");
 }
 </script>
@@ -40,7 +42,7 @@ function handleAdd() {
           <div class="order-box">
             <label class="qty-field">
               Quantité
-              <input type="number" min="1" max="20" v-model.number="qty" />
+              <input type="number" min="1" max="50" v-model.number="qty" />
             </label>
             <button type="button" class="btn primary" @click="handleAdd">
               Commander en ligne
@@ -74,6 +76,12 @@ function handleAdd() {
   <div v-else-if="catalog.state.loading" class="panier-not-found">
     <div class="container">
       <p>Chargement…</p>
+    </div>
+  </div>
+
+  <div v-else-if="catalog.state.error" class="panier-not-found">
+    <div class="container">
+      <LoadError :message="catalog.state.error" @retry="catalog.load" />
     </div>
   </div>
 

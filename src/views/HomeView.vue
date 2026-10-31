@@ -4,6 +4,7 @@ import { RouterLink } from "vue-router";
 import { site } from "../data/site.js";
 import { useCatalog } from "../stores/catalog.js";
 import PanierCard from "../components/PanierCard.vue";
+import LoadError from "../components/LoadError.vue";
 
 const previewSteps = site.howItWorks.slice(0, 3);
 const catalog = useCatalog();
@@ -34,6 +35,7 @@ onMounted(catalog.load);
         </p>
 
         <p v-if="catalog.state.loading" class="loading-note">Chargement des paniers…</p>
+        <LoadError v-else-if="catalog.state.error" :message="catalog.state.error" @retry="catalog.load" />
         <div v-else class="paniers-grid">
           <PanierCard v-for="panier in catalog.state.baskets" :key="panier.slug" :panier="panier" />
         </div>

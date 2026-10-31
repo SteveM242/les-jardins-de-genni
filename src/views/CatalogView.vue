@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onMounted, reactive } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { useCatalog } from "../stores/catalog.js";
 import { useCart } from "../stores/cart.js";
+import LoadError from "../components/LoadError.vue";
 
 const catalog = useCatalog();
 const cart = useCart();
@@ -9,15 +10,35 @@ onMounted(catalog.load);
 
 const quantities = reactive({});
 const added = reactive({});
+const search = ref("");
+const activeCategory = ref("all");
 
 function qtyFor(slug) {
   if (!quantities[slug]) quantities[slug] = 1;
   return quantities[slug];
 }
 
+function normalize(text) {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+}
+
+const categories = computed(() => [...new Set(catalog.state.products.map((p) => p.category || "Autres"))]);
+
+const visibleProducts = computed(() => {
+  const query = normalize(search.value.trim());
+  return catalog.state.products.filter((product) => {
+    const category = product.category || "Autres";
+    if (activeCategory.value !== "all" && category !== activeCategory.value) return false;
+    return !query || normalize(product.name).includes(query);
+  });
+});
+
 const grouped = computed(() => {
   const byCategory = {};
-  for (const product of catalog.state.products) {
+  for (const product of visibleProducts.value) {
     const category = product.category || "Autres";
     if (!byCategory[category]) byCategory[category] = [];
     byCategory[category].push(product);
@@ -26,7 +47,9 @@ const grouped = computed(() => {
 });
 
 function handleAdd(product) {
-  cart.addItem(product, qtyFor(product.slug));
+  const qty = Math.min(Math.max(Math.floor(Number(qtyFor(product.slug))) || 1, 1), 50);
+  quantities[product.slug] = qty;
+  cart.addItem(product, qty);
   added[product.slug] = true;
   setTimeout(() => {
     added[product.slug] = false;
@@ -45,6 +68,33 @@ function handleAdd(product) {
       </p>
 
       <p v-if="catalog.state.loading">Chargement du catalogue…</p>
+      <LoadError v-else-if="catalog.state.error" :message="catalog.state.error" @retry="catalog.load" />
+
+      <template v-else>
+        <div class="catalog-tools">
+          <label class="search-field">
+            <span class="sr-only">Rechercher un produit</span>
+            <input v-model="search" type="search" placeholder="Rechercher un produit (ex: mangue)" />
+          </label>
+          <div class="category-chips" role="group" aria-label="Filtrer par catégorie">
+            <button type="button" class="chip" :class="{ active: activeCategory === 'all' }" :aria-pressed="activeCategory === 'all'" @click="activeCategory = 'all'">
+              Tout
+            </button>
+            <button
+              v-for="category in categories"
+              :key="category"
+              type="button"
+              class="chip"
+              :class="{ active: activeCategory === category }"
+              :aria-pressed="activeCategory === category"
+              @click="activeCategory = category"
+            >
+              {{ category }}
+            </button>
+          </div>
+        </div>
+
+        <p v-if="visibleProducts.length === 0" class="no-result">Aucun produit ne correspond à votre recherche.</p>
 
       <div v-for="(products, category) in grouped" :key="category" class="category-block">
         <h2>{{ category }}</h2>
@@ -62,17 +112,19 @@ function handleAdd(product) {
               <input
                 type="number"
                 min="1"
-                max="20"
+                max="50"
+                :aria-label="`Quantité de ${product.name}`"
                 v-model.number="quantities[product.slug]"
                 :value="qtyFor(product.slug)"
               />
-              <button type="button" class="btn primary" @click="handleAdd(product)">
+              <button type="button" class="btn primary" :aria-label="`Ajouter ${product.name} au panier`" @click="handleAdd(product)">
                 {{ added[product.slug] ? "Ajouté ✓" : "Ajouter" }}
               </button>
             </div>
           </div>
         </div>
       </div>
+      </template>
     </div>
   </div>
 </template>
@@ -92,6 +144,51 @@ h1 {
   color: var(--muted);
   max-width: 540px;
   margin: 0 0 40px;
+}
+
+.catalog-tools {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.search-field input {
+  width: 100%;
+  max-width: 420px;
+  font: inherit;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: #fff;
+}
+
+.category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.chip.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.no-result {
+  color: var(--muted);
 }
 
 .category-block {
