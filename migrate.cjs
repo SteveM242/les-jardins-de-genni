@@ -1,83 +1,49 @@
+const fs = require("node:fs");
+const path = require("node:path");
 const bcrypt = require("bcryptjs");
-const { query } = require("./db.cjs");
+const { pool, query } = require("./db.cjs");
 
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS customers (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  email TEXT UNIQUE NOT NULL,
-  phone TEXT,
-  address TEXT,
-  password_hash TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+const MIGRATIONS_DIR = path.join(__dirname, "migrations");
+// Verrou applicatif Postgres : évite que deux instances migrent en même temps.
+const MIGRATION_LOCK_ID = 727001;
 
-CREATE TABLE IF NOT EXISTS admins (
-  id SERIAL PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+function listMigrations() {
+  return fs
+    .readdirSync(MIGRATIONS_DIR)
+    .filter((file) => file.endsWith(".sql"))
+    .sort()
+    .map((file) => ({ id: file.replace(/\.sql$/, ""), sql: fs.readFileSync(path.join(MIGRATIONS_DIR, file), "utf8") }));
+}
 
-CREATE TABLE IF NOT EXISTS products (
-  id SERIAL PRIMARY KEY,
-  slug TEXT UNIQUE NOT NULL,
-  name TEXT NOT NULL,
-  unit TEXT NOT NULL DEFAULT 'pièce',
-  price NUMERIC(10,2) NOT NULL,
-  category TEXT,
-  image TEXT,
-  active BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+// Applique, dans l'ordre, les fichiers de migrations/ pas encore enregistrés dans schema_migrations.
+async function runMigrations() {
+  const client = await pool.connect();
+  try {
+    await client.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_ID]);
+    await client.query(
+      "CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+    );
+    const { rows } = await client.query("SELECT id FROM schema_migrations");
+    const applied = new Set(rows.map((row) => row.id));
 
-CREATE TABLE IF NOT EXISTS baskets (
-  id SERIAL PRIMARY KEY,
-  slug TEXT UNIQUE NOT NULL,
-  name TEXT NOT NULL,
-  icon TEXT,
-  image TEXT,
-  price NUMERIC(10,2) NOT NULL,
-  summary TEXT,
-  details TEXT,
-  origin TEXT,
-  item_count INTEGER NOT NULL DEFAULT 0,
-  items JSONB NOT NULL DEFAULT '[]',
-  active BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS discount_codes (
-  id SERIAL PRIMARY KEY,
-  code TEXT UNIQUE NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('percent','fixed')),
-  value NUMERIC(10,2) NOT NULL,
-  active BOOLEAN NOT NULL DEFAULT true,
-  max_uses INTEGER,
-  used_count INTEGER NOT NULL DEFAULT 0,
-  expires_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS orders (
-  id SERIAL PRIMARY KEY,
-  order_number TEXT UNIQUE NOT NULL,
-  customer_id INTEGER REFERENCES customers(id),
-  name TEXT NOT NULL,
-  phone TEXT NOT NULL,
-  email TEXT,
-  fulfillment TEXT NOT NULL,
-  address TEXT,
-  notes TEXT,
-  items JSONB NOT NULL,
-  discount_code TEXT,
-  subtotal NUMERIC(10,2) NOT NULL,
-  discount_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
-  total NUMERIC(10,2) NOT NULL,
-  status TEXT NOT NULL DEFAULT 'nouvelle',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-`;
+    for (const migration of listMigrations()) {
+      if (applied.has(migration.id)) continue;
+      try {
+        await client.query("BEGIN");
+        await client.query(migration.sql);
+        await client.query("INSERT INTO schema_migrations (id) VALUES ($1)", [migration.id]);
+        await client.query("COMMIT");
+        console.log(`[migrate] migration appliquée : ${migration.id}`);
+      } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+      }
+    }
+  } finally {
+    await client.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK_ID]).catch(() => {});
+    client.release();
+  }
+}
 
 const SEED_BASKETS = [
   {
@@ -153,7 +119,7 @@ const SEED_PRODUCTS = [
 ];
 
 async function migrate() {
-  await query(SCHEMA);
+  await runMigrations();
 
   const { rows: basketCount } = await query("SELECT COUNT(*)::int AS n FROM baskets");
   if (basketCount[0].n === 0) {
@@ -184,13 +150,16 @@ async function migrate() {
 
   if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
     const email = process.env.ADMIN_EMAIL.trim().toLowerCase();
-    const { rows } = await query("SELECT id FROM admins WHERE email = $1", [email]);
-    const passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
+    const { rows } = await query("SELECT id, password_hash FROM admins WHERE email = $1", [email]);
     if (rows.length === 0) {
+      const passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
       await query("INSERT INTO admins (email, password_hash) VALUES ($1,$2)", [email, passwordHash]);
       console.log(`[migrate] Compte admin créé pour ${email}.`);
-    } else {
-      await query("UPDATE admins SET password_hash = $1 WHERE email = $2", [passwordHash, email]);
+    } else if (!(await bcrypt.compare(process.env.ADMIN_PASSWORD, rows[0].password_hash))) {
+      // Mot de passe changé dans l'environnement : on le met à jour et on coupe les sessions existantes.
+      const passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
+      await query("UPDATE admins SET password_hash = $1, token_version = token_version + 1 WHERE email = $2", [passwordHash, email]);
+      console.log(`[migrate] Mot de passe admin mis à jour pour ${email}.`);
     }
   } else {
     console.log("[migrate] ADMIN_EMAIL / ADMIN_PASSWORD non configurés — pas de compte admin créé.");
