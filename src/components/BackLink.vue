@@ -1,11 +1,22 @@
 <script setup>
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 
 const router = useRouter();
+const route = useRoute();
 
 function goBack() {
+  const startPath = route.fullPath;
+
   if (window.history.state?.back) {
     router.back();
+    // Filet de sécurité : si l'historique du navigateur ne répond pas
+    // (extension, webview, onglet sans historique réel), on force un
+    // retour à l'accueil plutôt que de laisser le bouton ne rien faire.
+    setTimeout(() => {
+      if (router.currentRoute.value.fullPath === startPath) {
+        router.push("/");
+      }
+    }, 250);
   } else {
     router.push("/");
   }
