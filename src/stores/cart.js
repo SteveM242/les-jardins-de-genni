@@ -14,7 +14,8 @@ function loadInitialItems() {
 }
 
 const state = reactive({
-  items: loadInitialItems()
+  items: loadInitialItems(),
+  discountCode: ""
 });
 
 watch(
@@ -26,30 +27,37 @@ watch(
   { deep: true }
 );
 
-function addItem(panier, qty = 1) {
-  const existing = state.items.find((item) => item.slug === panier.slug);
+function keyOf(item) {
+  return `${item.type}:${item.slug}`;
+}
+
+function addItem(sellable, qty = 1) {
+  const key = keyOf(sellable);
+  const existing = state.items.find((item) => keyOf(item) === key);
   if (existing) {
     existing.qty += qty;
   } else {
     state.items.push({
-      slug: panier.slug,
-      name: panier.name,
-      price: panier.price,
+      type: sellable.type,
+      slug: sellable.slug,
+      name: sellable.name,
+      price: sellable.price,
+      unit: sellable.unit || null,
       qty
     });
   }
 }
 
-function removeItem(slug) {
-  const index = state.items.findIndex((item) => item.slug === slug);
+function removeItem(type, slug) {
+  const index = state.items.findIndex((item) => item.type === type && item.slug === slug);
   if (index !== -1) state.items.splice(index, 1);
 }
 
-function setQty(slug, qty) {
-  const item = state.items.find((item) => item.slug === slug);
+function setQty(type, slug, qty) {
+  const item = state.items.find((item) => item.type === type && item.slug === slug);
   if (!item) return;
   if (qty <= 0) {
-    removeItem(slug);
+    removeItem(type, slug);
     return;
   }
   item.qty = qty;
@@ -57,19 +65,26 @@ function setQty(slug, qty) {
 
 function clear() {
   state.items.splice(0, state.items.length);
+  state.discountCode = "";
+}
+
+function setDiscountCode(code) {
+  state.discountCode = code;
 }
 
 const totalItems = computed(() => state.items.reduce((sum, item) => sum + item.qty, 0));
-const totalPrice = computed(() => state.items.reduce((sum, item) => sum + item.qty * item.price, 0));
+const subtotal = computed(() => state.items.reduce((sum, item) => sum + item.qty * item.price, 0));
 
 export function useCart() {
   return {
     items: computed(() => state.items),
+    discountCode: computed(() => state.discountCode),
     totalItems,
-    totalPrice,
+    subtotal,
     addItem,
     removeItem,
     setQty,
+    setDiscountCode,
     clear
   };
 }

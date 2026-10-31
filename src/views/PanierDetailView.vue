@@ -1,13 +1,15 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { useRoute, RouterLink, useRouter } from "vue-router";
-import { findPanierBySlug } from "../data/paniers.js";
+import { useCatalog } from "../stores/catalog.js";
 import { whatsappOrderLink } from "../data/site.js";
 import { useCart } from "../stores/cart.js";
 
 const route = useRoute();
 const router = useRouter();
-const panier = computed(() => findPanierBySlug(route.params.slug));
+const catalog = useCatalog();
+onMounted(catalog.load);
+const panier = computed(() => catalog.findBasketBySlug(route.params.slug));
 const cart = useCart();
 const qty = ref(1);
 
@@ -65,6 +67,12 @@ function handleAdd() {
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div v-else-if="catalog.state.loading" class="panier-not-found">
+    <div class="container">
+      <p>Chargement…</p>
     </div>
   </div>
 

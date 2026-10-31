@@ -1,10 +1,13 @@
 <script setup>
+import { onMounted } from "vue";
 import { RouterLink } from "vue-router";
 import { site } from "../data/site.js";
-import { paniers } from "../data/paniers.js";
+import { useCatalog } from "../stores/catalog.js";
 import PanierCard from "../components/PanierCard.vue";
 
 const previewSteps = site.howItWorks.slice(0, 3);
+const catalog = useCatalog();
+onMounted(catalog.load);
 </script>
 
 <template>
@@ -30,9 +33,14 @@ const previewSteps = site.howItWorks.slice(0, 3);
           exacte peut varier légèrement d'une semaine à l'autre.
         </p>
 
-        <div class="paniers-grid">
-          <PanierCard v-for="panier in paniers" :key="panier.slug" :panier="panier" />
+        <p v-if="catalog.state.loading" class="loading-note">Chargement des paniers…</p>
+        <div v-else class="paniers-grid">
+          <PanierCard v-for="panier in catalog.state.baskets" :key="panier.slug" :panier="panier" />
         </div>
+
+        <p class="catalog-link">
+          <RouterLink to="/produits">Envie de composer votre propre panier ? Voir les articles à l'unité →</RouterLink>
+        </p>
       </div>
     </section>
 
@@ -113,6 +121,21 @@ const previewSteps = site.howItWorks.slice(0, 3);
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 24px;
+}
+
+.loading-note {
+  color: var(--muted);
+}
+
+.catalog-link {
+  margin: 28px 0 0;
+  text-align: center;
+}
+
+.catalog-link a {
+  color: var(--clay-dark);
+  font-weight: 600;
+  text-decoration: underline;
 }
 
 .steps-section {

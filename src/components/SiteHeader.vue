@@ -1,8 +1,14 @@
 <script setup>
+import { onMounted } from "vue";
 import BrandLogo from "./BrandLogo.vue";
 import { useCart } from "../stores/cart.js";
+import { useAuth } from "../stores/auth.js";
 
 const cart = useCart();
+const auth = useAuth();
+onMounted(() => {
+  if (!auth.state.loaded) auth.fetchMe();
+});
 </script>
 
 <template>
@@ -12,15 +18,21 @@ const cart = useCart();
 
       <nav>
         <RouterLink to="/#paniers">Nos paniers</RouterLink>
+        <RouterLink to="/produits">À la carte</RouterLink>
         <RouterLink to="/comment-ca-marche">Comment ça marche</RouterLink>
         <RouterLink to="/a-propos">À propos</RouterLink>
         <RouterLink to="/contact">Contact</RouterLink>
       </nav>
 
-      <RouterLink to="/commande" class="btn primary compact cart-link">
-        Panier
-        <span v-if="cart.totalItems.value" class="cart-badge">{{ cart.totalItems.value }}</span>
-      </RouterLink>
+      <div class="header-actions">
+        <RouterLink :to="auth.state.customer ? '/compte' : '/compte/connexion'" class="account-link">
+          {{ auth.state.customer ? auth.state.customer.name.split(" ")[0] : "Mon compte" }}
+        </RouterLink>
+        <RouterLink to="/commande" class="btn primary compact cart-link">
+          Panier
+          <span v-if="cart.totalItems.value" class="cart-badge">{{ cart.totalItems.value }}</span>
+        </RouterLink>
+      </div>
     </div>
   </header>
 </template>
@@ -62,6 +74,23 @@ nav a:hover {
 .btn.compact {
   padding: 10px 18px;
   font-size: 13px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.account-link {
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.account-link:hover {
+  color: var(--green);
 }
 
 .cart-link {
