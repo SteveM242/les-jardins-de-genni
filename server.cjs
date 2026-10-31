@@ -1,5 +1,4 @@
 const path = require("node:path");
-const fs = require("node:fs");
 const crypto = require("node:crypto");
 const express = require("express");
 const cookieParser = require("cookie-parser");
@@ -12,37 +11,26 @@ const { signToken, verifyToken, setAuthCookie, clearAuthCookie, requireRole } = 
 
 const app = express();
 const distDir = path.join(__dirname, "dist");
-const uploadsDir = path.join(__dirname, "uploads");
-fs.mkdirSync(uploadsDir, { recursive: true });
 const port = process.env.PORT || 4173;
 
 app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
-app.use("/uploads", express.static(uploadsDir));
 
-const ALLOWED_IMAGE_TYPES = {
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp"
-};
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+// Les photos sont stockées en base64 directement dans Postgres (pas de volume
+// de fichiers séparé) : Railway n'a jamais réussi à attacher un volume fiable
+// à ce service sur ce compte, alors que Postgres a déjà le sien qui fonctionne.
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: uploadsDir,
-    filename: (_req, file, cb) => {
-      cb(null, `${crypto.randomUUID()}${ALLOWED_IMAGE_TYPES[file.mimetype] || ""}`);
-    }
-  }),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 3 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    cb(null, Boolean(ALLOWED_IMAGE_TYPES[file.mimetype]));
+    cb(null, ALLOWED_IMAGE_TYPES.has(file.mimetype));
   }
 });
 
-function deleteUploadedFile(imagePath) {
-  if (!imagePath || !imagePath.startsWith("/uploads/")) return;
-  const filePath = path.join(uploadsDir, path.basename(imagePath));
-  fs.unlink(filePath, () => {});
+function fileToDataUri(file) {
+  return `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
 }
 
 function slugify(text) {
@@ -448,8 +436,7 @@ app.patch("/api/admin/products/:id", requireRole("admin"), async (req, res) => {
 });
 
 app.delete("/api/admin/products/:id", requireRole("admin"), async (req, res) => {
-  const { rows } = await query("DELETE FROM products WHERE id = $1 RETURNING image", [req.params.id]);
-  if (rows[0]) deleteUploadedFile(rows[0].image);
+  await query("DELETE FROM products WHERE id = $1", [req.params.id]);
   res.json({ ok: true });
 });
 
@@ -458,15 +445,10 @@ app.post(
   requireRole("admin"),
   upload.single("image"),
   async (req, res) => {
-    if (!req.file) return res.status(400).json({ ok: false, error: "Image invalide (jpg, png ou webp, 5 Mo max)." });
-    const { rows: existing } = await query("SELECT image FROM products WHERE id = $1", [req.params.id]);
-    if (!existing[0]) {
-      deleteUploadedFile(`/uploads/${req.file.filename}`);
-      return res.status(404).json({ ok: false, error: "Article introuvable." });
-    }
-    const imagePath = `/uploads/${req.file.filename}`;
-    const { rows } = await query("UPDATE products SET image = $1 WHERE id = $2 RETURNING *", [imagePath, req.params.id]);
-    deleteUploadedFile(existing[0].image);
+    if (!req.file) return res.status(400).json({ ok: false, error: "Image invalide (jpg, png ou webp, 3 Mo max)." });
+    const dataUri = fileToDataUri(req.file);
+    const { rows } = await query("UPDATE products SET image = $1 WHERE id = $2 RETURNING *", [dataUri, req.params.id]);
+    if (!rows[0]) return res.status(404).json({ ok: false, error: "Article introuvable." });
     res.json({ ok: true, product: rows[0] });
   }
 );
@@ -510,8 +492,7 @@ app.patch("/api/admin/baskets/:id", requireRole("admin"), async (req, res) => {
 });
 
 app.delete("/api/admin/baskets/:id", requireRole("admin"), async (req, res) => {
-  const { rows } = await query("DELETE FROM baskets WHERE id = $1 RETURNING image", [req.params.id]);
-  if (rows[0]) deleteUploadedFile(rows[0].image);
+  await query("DELETE FROM baskets WHERE id = $1", [req.params.id]);
   res.json({ ok: true });
 });
 
@@ -520,15 +501,10 @@ app.post(
   requireRole("admin"),
   upload.single("image"),
   async (req, res) => {
-    if (!req.file) return res.status(400).json({ ok: false, error: "Image invalide (jpg, png ou webp, 5 Mo max)." });
-    const { rows: existing } = await query("SELECT image FROM baskets WHERE id = $1", [req.params.id]);
-    if (!existing[0]) {
-      deleteUploadedFile(`/uploads/${req.file.filename}`);
-      return res.status(404).json({ ok: false, error: "Panier introuvable." });
-    }
-    const imagePath = `/uploads/${req.file.filename}`;
-    const { rows } = await query("UPDATE baskets SET image = $1 WHERE id = $2 RETURNING *", [imagePath, req.params.id]);
-    deleteUploadedFile(existing[0].image);
+    if (!req.file) return res.status(400).json({ ok: false, error: "Image invalide (jpg, png ou webp, 3 Mo max)." });
+    const dataUri = fileToDataUri(req.file);
+    const { rows } = await query("UPDATE baskets SET image = $1 WHERE id = $2 RETURNING *", [dataUri, req.params.id]);
+    if (!rows[0]) return res.status(404).json({ ok: false, error: "Panier introuvable." });
     res.json({ ok: true, basket: rows[0] });
   }
 );
