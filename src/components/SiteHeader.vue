@@ -1,11 +1,20 @@
 <script setup>
-import { onMounted } from "vue";
+import { onMounted, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 import BrandLogo from "./BrandLogo.vue";
 import { useCart } from "../stores/cart.js";
 import { useAuth } from "../stores/auth.js";
 
 const cart = useCart();
 const auth = useAuth();
+const route = useRoute();
+const menuOpen = ref(false);
+
+// Le menu mobile se referme à chaque changement de page.
+watch(() => route.fullPath, () => {
+  menuOpen.value = false;
+});
+
 onMounted(() => {
   if (!auth.state.loaded) auth.fetchMe();
 });
@@ -16,15 +25,28 @@ onMounted(() => {
     <div class="container site-header-inner">
       <BrandLogo />
 
-      <nav>
+      <nav id="main-nav" :class="{ open: menuOpen }" aria-label="Navigation principale">
         <RouterLink to="/#paniers">Nos paniers</RouterLink>
         <RouterLink to="/produits">À la carte</RouterLink>
         <RouterLink to="/comment-ca-marche">Comment ça marche</RouterLink>
         <RouterLink to="/a-propos">À propos</RouterLink>
         <RouterLink to="/contact">Contact</RouterLink>
+        <RouterLink :to="auth.state.customer ? '/compte' : '/compte/connexion'" class="nav-account">
+          {{ auth.state.customer ? "Mon compte" : "Connexion / Mon compte" }}
+        </RouterLink>
       </nav>
 
       <div class="header-actions">
+        <button
+          type="button"
+          class="menu-toggle"
+          :aria-expanded="menuOpen"
+          aria-controls="main-nav"
+          aria-label="Menu"
+          @click="menuOpen = !menuOpen"
+        >
+          <span aria-hidden="true">{{ menuOpen ? "✕" : "☰" }}</span>
+        </button>
         <RouterLink :to="auth.state.customer ? '/compte' : '/compte/connexion'" class="account-link">
           {{ auth.state.customer ? auth.state.customer.name.split(" ")[0] : "Mon compte" }}
         </RouterLink>
@@ -113,8 +135,67 @@ nav a:hover {
   justify-content: center;
 }
 
+.nav-account {
+  display: none;
+}
+
+.menu-toggle {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text);
+}
+
 @media (max-width: 760px) {
+  .menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .site-header-inner {
+    position: relative;
+    gap: 10px;
+  }
+
   nav {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 0;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+  }
+
+  nav.open {
+    display: flex;
+  }
+
+  nav a {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    font-size: 15px;
+  }
+
+  nav a:last-child {
+    border-bottom: 0;
+  }
+
+  nav .nav-account {
+    display: block;
+  }
+
+  .account-link {
     display: none;
   }
 }
