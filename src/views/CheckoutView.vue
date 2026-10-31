@@ -187,6 +187,9 @@ async function submitOrder() {
 
         <form class="order-form" @submit.prevent="submitOrder">
           <h2>Vos coordonnées</h2>
+          <p v-if="!auth.state.customer" class="guest-note">
+            Pas besoin de compte pour commander — remplissez simplement vos coordonnées ci-dessous.
+          </p>
 
           <label>
             Nom et prénom *
@@ -300,6 +303,15 @@ h1 {
 .order-form h2 {
   font-size: 18px;
   margin: 0 0 18px;
+}
+
+.guest-note {
+  margin: -10px 0 18px;
+  font-size: 13px;
+  color: var(--muted);
+  background: var(--cream-deep);
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 .cart-row {

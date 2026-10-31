@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth } from "../../stores/auth.js";
+import BackLink from "../../components/BackLink.vue";
 
 const router = useRouter();
 const auth = useAuth();
@@ -34,6 +35,7 @@ const statusLabels = {
 <template>
   <div class="account-page">
     <div class="container">
+      <BackLink />
       <div class="account-header">
         <div>
           <p class="eyebrow">Mon compte</p>
