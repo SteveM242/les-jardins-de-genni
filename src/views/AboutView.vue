@@ -7,7 +7,7 @@ import { site } from "../data/site.js";
   <div class="about">
     <div class="container about-grid">
       <div class="about-media">
-        <img src="/images/about-martinique.jpg" alt="Culture de bananes et canne à sucre en Martinique" />
+        <img src="/images/about-martinique.webp" alt="Culture de bananes et canne à sucre en Martinique" />
       </div>
 
       <div class="about-body">

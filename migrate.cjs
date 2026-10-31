@@ -50,7 +50,7 @@ const SEED_BASKETS = [
     slug: "panier-peyi-classique",
     name: "Panier Péyi Classique",
     icon: "🧺",
-    image: "/images/panier-peyi-classique.jpg",
+    image: "/images/panier-peyi-classique.webp",
     price: 20,
     summary: "Le mélange du jardin : légumes et fruits de saison, pour une semaine de cuisine péyi.",
     details:
@@ -66,7 +66,7 @@ const SEED_BASKETS = [
     slug: "panier-fruits-tropicaux",
     name: "Panier Fruits Tropicaux",
     icon: "🥭",
-    image: "/images/panier-fruits-tropicaux.jpg",
+    image: "/images/panier-fruits-tropicaux.webp",
     price: 18,
     summary: "Un concentré de douceur : mangues, ananas, bananes et fruits de la passion.",
     details:
@@ -78,7 +78,7 @@ const SEED_BASKETS = [
     slug: "panier-legumes-jardin",
     name: "Panier Légumes Jardin",
     icon: "🥬",
-    image: "/images/panier-legumes-jardin.jpg",
+    image: "/images/panier-legumes-jardin.webp",
     price: 17,
     summary: "Que des légumes : de quoi cuisiner toute la semaine sans repasser par le marché.",
     details:
@@ -93,7 +93,7 @@ const SEED_BASKETS = [
     slug: "panier-decouverte",
     name: "Panier Découverte",
     icon: "🌱",
-    image: "/images/panier-decouverte.jpg",
+    image: "/images/panier-decouverte.webp",
     price: 12,
     summary: "Un petit format pour découvrir, seul·e ou en couple.",
     details:

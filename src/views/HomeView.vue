@@ -73,7 +73,7 @@ onMounted(catalog.load);
   padding: 100px 0 80px;
   border-bottom: 1px solid var(--line);
   background: linear-gradient(180deg, rgba(43, 36, 32, 0.6) 0%, rgba(43, 36, 32, 0.78) 100%),
-    url("/images/hero-jardin.jpg") center/cover no-repeat;
+    url("/images/hero-jardin.webp") center/cover no-repeat;
   color: #fff;
 }
 
