@@ -204,8 +204,17 @@ function serveStatic(req, res) {
     filePath = path.join(distDir, "index.html");
   }
 
+  const hasExtension = path.extname(safePath) !== "";
+
   fs.readFile(filePath, (err, data) => {
     if (err) {
+      if (hasExtension) {
+        res.writeHead(404);
+        res.end("Not found");
+        return;
+      }
+
+      // Pas d'extension : on suppose une route SPA (vue-router), on sert index.html.
       fs.readFile(path.join(distDir, "index.html"), (fallbackErr, fallbackData) => {
         if (fallbackErr) {
           res.writeHead(500);
