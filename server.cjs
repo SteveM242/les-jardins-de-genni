@@ -575,3 +575,4 @@ migrate()
     console.error("[migrate] échec de la migration de la base:", err);
     process.exit(1);
   });
+// persistence check Sat Oct 31 21:14:07     2026
