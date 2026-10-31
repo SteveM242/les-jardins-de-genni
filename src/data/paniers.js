@@ -6,6 +6,7 @@ export const paniers = [
     slug: "panier-peyi-classique",
     name: "Panier Péyi Classique",
     icon: "🧺",
+    image: "/images/panier-peyi-classique.jpg",
     price: 20,
     summary:
       "Le mélange du jardin : légumes et fruits de saison, pour une semaine de cuisine péyi.",
@@ -30,6 +31,7 @@ export const paniers = [
     slug: "panier-fruits-tropicaux",
     name: "Panier Fruits Tropicaux",
     icon: "🥭",
+    image: "/images/panier-fruits-tropicaux.jpg",
     price: 18,
     summary:
       "Un concentré de douceur : mangues, ananas, bananes et fruits de la passion.",
@@ -50,6 +52,7 @@ export const paniers = [
     slug: "panier-legumes-jardin",
     name: "Panier Légumes Jardin",
     icon: "🥬",
+    image: "/images/panier-legumes-jardin.jpg",
     price: 17,
     summary:
       "Que des légumes : de quoi cuisiner toute la semaine sans repasser par le marché.",
@@ -72,6 +75,7 @@ export const paniers = [
     slug: "panier-decouverte",
     name: "Panier Découverte",
     icon: "🌱",
+    image: "/images/panier-decouverte.jpg",
     price: 12,
     summary: "Un petit format pour découvrir, seul·e ou en couple.",
     itemCount: 6,

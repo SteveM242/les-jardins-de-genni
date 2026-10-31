@@ -1,11 +1,20 @@
 <script setup>
-import { computed } from "vue";
-import { useRoute, RouterLink } from "vue-router";
+import { computed, ref } from "vue";
+import { useRoute, RouterLink, useRouter } from "vue-router";
 import { findPanierBySlug } from "../data/paniers.js";
 import { whatsappOrderLink } from "../data/site.js";
+import { useCart } from "../stores/cart.js";
 
 const route = useRoute();
+const router = useRouter();
 const panier = computed(() => findPanierBySlug(route.params.slug));
+const cart = useCart();
+const qty = ref(1);
+
+function handleAdd() {
+  cart.addItem(panier.value, qty.value);
+  router.push("/commande");
+}
 </script>
 
 <template>
@@ -14,8 +23,9 @@ const panier = computed(() => findPanierBySlug(route.params.slug));
       <RouterLink to="/#paniers" class="back-link">← Tous les paniers</RouterLink>
 
       <div class="panier-detail-grid">
-        <div class="panier-detail-media" aria-hidden="true">
-          <span>{{ panier.icon }}</span>
+        <div class="panier-detail-media">
+          <img :src="panier.image" :alt="panier.name" />
+          <span class="panier-detail-icon" aria-hidden="true">{{ panier.icon }}</span>
         </div>
 
         <div class="panier-detail-body">
@@ -24,9 +34,18 @@ const panier = computed(() => findPanierBySlug(route.params.slug));
           <p class="panier-detail-price">{{ panier.price }} €</p>
           <p class="panier-detail-summary">{{ panier.summary }}</p>
 
-          <a :href="whatsappOrderLink(panier.name)" target="_blank" rel="noreferrer" class="btn whatsapp">
-            Commander sur WhatsApp
-          </a>
+          <div class="order-box">
+            <label class="qty-field">
+              Quantité
+              <input type="number" min="1" max="20" v-model.number="qty" />
+            </label>
+            <button type="button" class="btn primary" @click="handleAdd">
+              Commander en ligne
+            </button>
+            <a :href="whatsappOrderLink(panier.name)" target="_blank" rel="noreferrer" class="btn whatsapp">
+              Commander sur WhatsApp
+            </a>
+          </div>
 
           <div class="panier-detail-section">
             <h2>Ce que contient ce panier</h2>
@@ -88,17 +107,54 @@ const panier = computed(() => findPanierBySlug(route.params.slug));
   top: 100px;
   height: 320px;
   border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--cream-deep);
+}
+
+.panier-detail-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.panier-detail-icon {
+  position: absolute;
+  margin: 14px;
+  font-size: 28px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  width: 46px;
+  height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--cream-deep);
-  background-image: radial-gradient(var(--line) 1.5px, transparent 1.5px);
-  background-size: 18px 18px;
-  border: 1px solid var(--line);
 }
 
-.panier-detail-media span {
-  font-size: 88px;
+.order-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.qty-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.qty-field input {
+  width: 70px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  font: inherit;
 }
 
 .panier-detail-body h1 {

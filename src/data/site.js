@@ -26,8 +26,8 @@ export const site = {
       text: "Parcourez les paniers disponibles cette semaine et leur contenu détaillé."
     },
     {
-      title: "2. Commandez par WhatsApp",
-      text: "Un seul clic : le message est pré-rempli, il ne reste qu'à l'envoyer."
+      title: "2. Commandez en ligne ou sur WhatsApp",
+      text: "Remplissez le formulaire de commande, ou envoyez un message pré-rempli sur WhatsApp si vous préférez."
     },
     {
       title: "3. Récupérez ou faites-vous livrer",
@@ -43,5 +43,11 @@ export function whatsappOrderLink(panierName) {
 
 export function whatsappGeneralLink() {
   const message = "Bonjour Genni, j'ai une question sur vos paniers.";
+  return `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(message)}`;
+}
+
+export function whatsappCartLink(items) {
+  const lines = items.map((item) => `- ${item.qty} x ${item.name}`);
+  const message = `Bonjour Genni, je souhaite commander :\n${lines.join("\n")}\n\nEst-ce disponible cette semaine ?`;
   return `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(message)}`;
 }

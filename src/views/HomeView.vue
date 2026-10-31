@@ -1,7 +1,10 @@
 <script setup>
+import { RouterLink } from "vue-router";
 import { site } from "../data/site.js";
 import { paniers } from "../data/paniers.js";
 import PanierCard from "../components/PanierCard.vue";
+
+const previewSteps = site.howItWorks.slice(0, 3);
 </script>
 
 <template>
@@ -13,7 +16,7 @@ import PanierCard from "../components/PanierCard.vue";
         <p class="hero-intro">{{ site.intro }}</p>
         <div class="hero-actions">
           <a href="#paniers" class="btn primary">Voir les paniers</a>
-          <a href="#comment-ca-marche" class="btn ghost">Comment ça marche</a>
+          <RouterLink to="/a-propos" class="btn ghost light">Découvrir Genni</RouterLink>
         </div>
       </div>
     </section>
@@ -33,13 +36,13 @@ import PanierCard from "../components/PanierCard.vue";
       </div>
     </section>
 
-    <section id="comment-ca-marche" class="steps-section">
+    <section class="steps-section">
       <div class="container">
         <p class="eyebrow">Comment ça marche</p>
         <h2>Trois étapes, c'est tout</h2>
 
         <ol class="steps-list">
-          <li v-for="(step, index) in site.howItWorks" :key="step.title">
+          <li v-for="(step, index) in previewSteps" :key="step.title">
             <span class="step-number">{{ index + 1 }}</span>
             <div>
               <h3>{{ step.title }}</h3>
@@ -47,6 +50,8 @@ import PanierCard from "../components/PanierCard.vue";
             </div>
           </li>
         </ol>
+
+        <RouterLink to="/comment-ca-marche" class="btn ghost">En savoir plus</RouterLink>
       </div>
     </section>
   </div>
@@ -54,22 +59,30 @@ import PanierCard from "../components/PanierCard.vue";
 
 <style scoped>
 .hero {
-  background: linear-gradient(180deg, var(--cream-deep) 0%, var(--cream) 100%);
-  padding: 72px 0 56px;
+  position: relative;
+  padding: 100px 0 80px;
   border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(43, 36, 32, 0.6) 0%, rgba(43, 36, 32, 0.78) 100%),
+    url("/images/hero-jardin.jpg") center/cover no-repeat;
+  color: #fff;
 }
 
 .hero-inner {
   max-width: 640px;
 }
 
+.hero .eyebrow {
+  color: #f0d9bf;
+}
+
 .hero h1 {
   font-size: 40px;
   margin: 0 0 18px;
+  color: #fff;
 }
 
 .hero-intro {
-  color: var(--muted);
+  color: #ece4d6;
   font-size: 16px;
   margin: 0 0 28px;
 }
@@ -78,6 +91,11 @@ import PanierCard from "../components/PanierCard.vue";
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
+}
+
+.btn.ghost.light {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
 }
 
 .paniers-section,
@@ -105,7 +123,7 @@ import PanierCard from "../components/PanierCard.vue";
 
 .steps-list {
   list-style: none;
-  margin: 36px 0 0;
+  margin: 36px 0 32px;
   padding: 0;
   display: grid;
   gap: 28px;
@@ -145,7 +163,7 @@ import PanierCard from "../components/PanierCard.vue";
 
 @media (max-width: 700px) {
   .hero {
-    padding: 56px 0 40px;
+    padding: 72px 0 56px;
   }
 
   .hero h1 {

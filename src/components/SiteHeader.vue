@@ -1,6 +1,8 @@
 <script setup>
 import BrandLogo from "./BrandLogo.vue";
-import { whatsappGeneralLink } from "../data/site.js";
+import { useCart } from "../stores/cart.js";
+
+const cart = useCart();
 </script>
 
 <template>
@@ -10,13 +12,15 @@ import { whatsappGeneralLink } from "../data/site.js";
 
       <nav>
         <RouterLink to="/#paniers">Nos paniers</RouterLink>
-        <RouterLink to="/#comment-ca-marche">Comment ça marche</RouterLink>
-        <RouterLink to="/#contact">Contact</RouterLink>
+        <RouterLink to="/comment-ca-marche">Comment ça marche</RouterLink>
+        <RouterLink to="/a-propos">À propos</RouterLink>
+        <RouterLink to="/contact">Contact</RouterLink>
       </nav>
 
-      <a :href="whatsappGeneralLink()" target="_blank" rel="noreferrer" class="btn whatsapp compact">
-        Commander
-      </a>
+      <RouterLink to="/commande" class="btn primary compact cart-link">
+        Panier
+        <span v-if="cart.totalItems.value" class="cart-badge">{{ cart.totalItems.value }}</span>
+      </RouterLink>
     </div>
   </header>
 </template>
@@ -58,6 +62,26 @@ nav a:hover {
 .btn.compact {
   padding: 10px 18px;
   font-size: 13px;
+}
+
+.cart-link {
+  position: relative;
+}
+
+.cart-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: var(--clay);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (max-width: 760px) {

@@ -4,11 +4,18 @@ import { site, whatsappGeneralLink } from "../data/site.js";
 </script>
 
 <template>
-  <footer id="contact" class="site-footer">
+  <footer class="site-footer">
     <div class="container site-footer-inner">
       <div class="footer-brand">
         <BrandLogo />
         <p>{{ site.tagline }}</p>
+      </div>
+
+      <div class="footer-nav">
+        <p class="eyebrow">Le site</p>
+        <RouterLink to="/comment-ca-marche">Comment ça marche</RouterLink>
+        <RouterLink to="/a-propos">À propos</RouterLink>
+        <RouterLink to="/commande">Mon panier</RouterLink>
       </div>
 
       <div class="footer-contact">
@@ -48,11 +55,13 @@ import { site, whatsappGeneralLink } from "../data/site.js";
   color: #cfe0d0;
 }
 
+.footer-nav,
 .footer-contact {
   display: grid;
   gap: 8px;
 }
 
+.footer-nav a,
 .footer-contact a,
 .footer-contact span {
   text-decoration: none;
@@ -60,6 +69,7 @@ import { site, whatsappGeneralLink } from "../data/site.js";
   font-weight: 600;
 }
 
+.footer-nav .eyebrow,
 .footer-contact .eyebrow {
   color: #a9d6ad;
 }

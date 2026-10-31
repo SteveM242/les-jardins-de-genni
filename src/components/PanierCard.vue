@@ -1,18 +1,32 @@
 <script setup>
+import { ref } from "vue";
 import { whatsappOrderLink } from "../data/site.js";
+import { useCart } from "../stores/cart.js";
 
-defineProps({
+const props = defineProps({
   panier: {
     type: Object,
     required: true
   }
 });
+
+const cart = useCart();
+const added = ref(false);
+
+function handleAdd() {
+  cart.addItem(props.panier, 1);
+  added.value = true;
+  setTimeout(() => {
+    added.value = false;
+  }, 1500);
+}
 </script>
 
 <template>
   <article class="panier-card">
-    <div class="panier-card-media" aria-hidden="true">
-      <span>{{ panier.icon }}</span>
+    <div class="panier-card-media">
+      <img :src="panier.image" :alt="panier.name" loading="lazy" />
+      <span class="panier-card-icon" aria-hidden="true">{{ panier.icon }}</span>
     </div>
 
     <div class="panier-card-body">
@@ -26,10 +40,13 @@ defineProps({
 
       <div class="panier-card-actions">
         <RouterLink :to="`/panier/${panier.slug}`" class="btn ghost">Voir le détail</RouterLink>
-        <a :href="whatsappOrderLink(panier.name)" target="_blank" rel="noreferrer" class="btn whatsapp">
-          Commander
-        </a>
+        <button type="button" class="btn primary" @click="handleAdd">
+          {{ added ? "Ajouté ✓" : "Ajouter au panier" }}
+        </button>
       </div>
+      <a :href="whatsappOrderLink(panier.name)" target="_blank" rel="noreferrer" class="whatsapp-link">
+        ou commander directement sur WhatsApp
+      </a>
     </div>
   </article>
 </template>
@@ -45,18 +62,31 @@ defineProps({
 }
 
 .panier-card-media {
-  height: 140px;
+  position: relative;
+  height: 150px;
+  border-bottom: 1px solid var(--line);
+  background: var(--cream-deep);
+}
+
+.panier-card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.panier-card-icon {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  font-size: 22px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--cream-deep);
-  background-image: radial-gradient(var(--line) 1.5px, transparent 1.5px);
-  background-size: 16px 16px;
-  border-bottom: 1px solid var(--line);
-}
-
-.panier-card-media span {
-  font-size: 44px;
 }
 
 .panier-card-body {
@@ -95,5 +125,12 @@ defineProps({
   justify-content: center;
   padding: 11px 14px;
   font-size: 13px;
+}
+
+.whatsapp-link {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: underline;
 }
 </style>
