@@ -193,7 +193,7 @@ h2 {
 
 .status-nouvelle {
   background: #fcebd9;
-  color: #a3621b;
+  color: #8a4f12;
 }
 
 .status-confirmee {

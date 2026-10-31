@@ -123,7 +123,7 @@ nav a:hover {
   position: absolute;
   top: -6px;
   right: -6px;
-  background: var(--clay);
+  background: var(--clay-dark);
   color: #fff;
   font-size: 11px;
   font-weight: 700;

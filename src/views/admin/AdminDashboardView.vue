@@ -349,7 +349,7 @@ h1 {
 .status-badge.status-nouvelle,
 .filter-chip.status-nouvelle:not(.active) {
   background: #fcebd9;
-  color: #a3621b;
+  color: #8a4f12;
 }
 
 .status-badge.status-confirmee,
