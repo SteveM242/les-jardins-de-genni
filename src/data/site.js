@@ -51,6 +51,15 @@ export function whatsappOrderConfirmLink(orderNumber, customerName) {
   return `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(message)}`;
 }
 
+// Lien WhatsApp vers un·e client·e à partir du téléphone saisi à la commande.
+// Un numéro local (0696…, 0596…) est converti avec l'indicatif de la Martinique (596).
+export function customerWhatsappLink(phone, message) {
+  let digits = String(phone).replace(/\D/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  else if (digits.startsWith("0") && digits.length === 10) digits = `596${digits.slice(1)}`;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+}
+
 export function whatsappCartLink(items) {
   const lines = items.map((item) => `- ${item.qty} x ${item.name}`);
   const message = `Bonjour Genni, je souhaite commander :\n${lines.join("\n")}\n\nEst-ce disponible cette semaine ?`;

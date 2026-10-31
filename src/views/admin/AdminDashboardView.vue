@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import AdminNav from "../../components/admin/AdminNav.vue";
 import LoadError from "../../components/LoadError.vue";
 import { api } from "../../api.js";
+import { customerWhatsappLink } from "../../data/site.js";
 import { useToast } from "../../stores/toast.js";
 
 const toast = useToast();
@@ -187,6 +188,14 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="order-footer">
+          <a
+            :href="customerWhatsappLink(order.phone, `Bonjour ${order.name}, c'est Genni (Les Jardins de Genni) à propos de votre commande ${order.order_number}.`)"
+            target="_blank"
+            rel="noreferrer"
+            class="btn ghost whatsapp-link"
+          >
+            Écrire sur WhatsApp
+          </a>
           <select
             :value="order.status"
             :aria-label="`Statut de la commande ${order.order_number}`"
@@ -446,6 +455,10 @@ h1 {
 .order-footer .btn {
   padding: 9px 16px;
   font-size: 13px;
+}
+
+.order-footer .whatsapp-link {
+  margin-right: auto;
 }
 
 @media (max-width: 760px) {
