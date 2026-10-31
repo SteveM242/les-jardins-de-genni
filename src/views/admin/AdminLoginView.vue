@@ -2,6 +2,7 @@
 import { reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAdminAuth } from "../../stores/adminAuth.js";
+import PasswordField from "../../components/PasswordField.vue";
 
 const router = useRouter();
 const adminAuth = useAdminAuth();
@@ -36,7 +37,7 @@ async function submit() {
         </label>
         <label>
           Mot de passe
-          <input v-model="form.password" type="password" required />
+          <PasswordField v-model="form.password" />
         </label>
 
         <p v-if="error" class="form-error">{{ error }}</p>

@@ -2,6 +2,7 @@
 import { reactive, ref } from "vue";
 import { useRouter, RouterLink } from "vue-router";
 import { useAuth } from "../../stores/auth.js";
+import PasswordField from "../../components/PasswordField.vue";
 
 const router = useRouter();
 const auth = useAuth();
@@ -26,7 +27,7 @@ async function submit() {
 <template>
   <div class="auth-page">
     <div class="container narrow">
-      <p class="eyebrow">Mon compte</p>
+      <p class="eyebrow">Espace client</p>
       <h1>Créer un compte</h1>
 
       <form class="auth-form" @submit.prevent="submit">
@@ -44,7 +45,7 @@ async function submit() {
         </label>
         <label>
           Mot de passe (6 caractères min.)
-          <input v-model="form.password" type="password" minlength="6" required />
+          <PasswordField v-model="form.password" minlength="6" />
         </label>
 
         <p v-if="error" class="form-error">{{ error }}</p>

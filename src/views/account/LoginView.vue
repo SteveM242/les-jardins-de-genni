@@ -2,6 +2,7 @@
 import { reactive, ref } from "vue";
 import { useRouter, RouterLink } from "vue-router";
 import { useAuth } from "../../stores/auth.js";
+import PasswordField from "../../components/PasswordField.vue";
 
 const router = useRouter();
 const auth = useAuth();
@@ -26,8 +27,9 @@ async function submit() {
 <template>
   <div class="auth-page">
     <div class="container narrow">
-      <p class="eyebrow">Mon compte</p>
+      <p class="eyebrow">Espace client</p>
       <h1>Connexion</h1>
+      <p class="hint">Pour suivre vos commandes. Vous cherchez l'espace de gestion de Genni ? C'est par ici : <RouterLink to="/admin/connexion">Espace Genni</RouterLink>.</p>
 
       <form class="auth-form" @submit.prevent="submit">
         <label>
@@ -36,7 +38,7 @@ async function submit() {
         </label>
         <label>
           Mot de passe
-          <input v-model="form.password" type="password" required />
+          <PasswordField v-model="form.password" />
         </label>
 
         <p v-if="error" class="form-error">{{ error }}</p>
@@ -64,7 +66,18 @@ async function submit() {
 
 h1 {
   font-size: 28px;
-  margin: 4px 0 28px;
+  margin: 4px 0 12px;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 24px;
+}
+
+.hint a {
+  color: var(--clay-dark);
+  font-weight: 600;
 }
 
 .auth-form {
