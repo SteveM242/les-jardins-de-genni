@@ -599,4 +599,3 @@ migrate()
     console.error("[migrate] échec de la migration de la base:", err);
     process.exit(1);
   });
-// touch Sat Oct 31 20:26:49     2026

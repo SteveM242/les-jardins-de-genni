@@ -28,10 +28,10 @@ const router = createRouter({
     { path: "/comment-ca-marche", component: HowItWorksView },
     { path: "/a-propos", component: AboutView },
     { path: "/contact", component: ContactView },
-    { path: "/compte/connexion", component: LoginView },
-    { path: "/compte/inscription", component: SignupView },
+    { path: "/compte/connexion", component: LoginView, meta: { guestOnly: "customer" } },
+    { path: "/compte/inscription", component: SignupView, meta: { guestOnly: "customer" } },
     { path: "/compte", component: AccountView, meta: { requiresCustomer: true } },
-    { path: "/admin/connexion", component: AdminLoginView, meta: { bare: true } },
+    { path: "/admin/connexion", component: AdminLoginView, meta: { bare: true, guestOnly: "admin" } },
     { path: "/admin", component: AdminDashboardView, meta: { bare: true, requiresAdmin: true } },
     { path: "/admin/articles", component: AdminProductsView, meta: { bare: true, requiresAdmin: true } },
     { path: "/admin/paniers", component: AdminBasketsView, meta: { bare: true, requiresAdmin: true } },
@@ -52,6 +52,19 @@ router.beforeEach(async (to) => {
     const adminAuth = useAdminAuth();
     if (!adminAuth.state.loaded) await adminAuth.fetchMe();
     if (!adminAuth.state.admin) return "/admin/connexion";
+  }
+
+  // Déjà connecté·e : on saute l'écran de connexion et on va directement au bon espace.
+  if (to.meta.guestOnly === "customer") {
+    const auth = useAuth();
+    if (!auth.state.loaded) await auth.fetchMe();
+    if (auth.state.customer) return "/compte";
+  }
+
+  if (to.meta.guestOnly === "admin") {
+    const adminAuth = useAdminAuth();
+    if (!adminAuth.state.loaded) await adminAuth.fetchMe();
+    if (adminAuth.state.admin) return "/admin";
   }
 
   return true;
