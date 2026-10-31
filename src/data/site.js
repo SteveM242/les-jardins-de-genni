@@ -46,6 +46,11 @@ export function whatsappGeneralLink() {
   return `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(message)}`;
 }
 
+export function whatsappOrderConfirmLink(orderNumber, customerName) {
+  const message = `Bonjour Genni, c'est ${customerName || "un·e client·e"}. Je viens de passer la commande ${orderNumber} sur le site.`;
+  return `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(message)}`;
+}
+
 export function whatsappCartLink(items) {
   const lines = items.map((item) => `- ${item.qty} x ${item.name}`);
   const message = `Bonjour Genni, je souhaite commander :\n${lines.join("\n")}\n\nEst-ce disponible cette semaine ?`;

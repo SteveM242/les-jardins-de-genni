@@ -1,35 +1,51 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { api } from "../../api.js";
 import { useAuth } from "../../stores/auth.js";
 import BackLink from "../../components/BackLink.vue";
+import LoadError from "../../components/LoadError.vue";
 
 const router = useRouter();
 const auth = useAuth();
 const orders = ref([]);
 const loading = ref(true);
+const loadError = ref("");
 
 async function logout() {
   await auth.logout();
   router.push("/");
 }
 
-onMounted(async () => {
-  const res = await fetch("/api/account/orders");
-  if (res.ok) {
-    const data = await res.json();
-    orders.value = data.orders || [];
-  }
+async function loadOrders() {
+  loading.value = true;
+  loadError.value = "";
+  const res = await api("/api/account/orders");
+  if (res.ok) orders.value = res.data.orders || [];
+  else loadError.value = res.error;
   loading.value = false;
-});
+}
+
+onMounted(loadOrders);
 
 const statusLabels = {
-  nouvelle: "Nouvelle",
+  nouvelle: "Reçue",
   confirmee: "Confirmée",
   prete: "Prête",
-  livree: "Livrée",
+  livree: "Terminée",
   annulee: "Annulée"
 };
+
+// Frise de suivi : les quatre étapes d'une commande qui se passe bien.
+const progressSteps = ["nouvelle", "confirmee", "prete", "livree"];
+
+function progressIndex(status) {
+  return progressSteps.indexOf(status);
+}
+
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+}
 </script>
 
 <template>
@@ -47,14 +63,30 @@ const statusLabels = {
       <h2>Mes commandes</h2>
 
       <p v-if="loading" class="muted">Chargement…</p>
-      <p v-else-if="orders.length === 0" class="muted">Vous n'avez pas encore passé de commande.</p>
+      <LoadError v-else-if="loadError" :message="loadError" @retry="loadOrders" />
+      <div v-else-if="orders.length === 0" class="empty">
+        <p class="muted">Vous n'avez pas encore passé de commande.</p>
+        <RouterLink to="/#paniers" class="btn primary">Découvrir les paniers</RouterLink>
+      </div>
 
       <div v-else class="orders-list">
         <div v-for="order in orders" :key="order.order_number" class="order-row">
           <div class="order-row-head">
-            <strong>Commande {{ order.order_number }}</strong>
+            <div>
+              <strong>Commande {{ order.order_number }}</strong>
+              <span class="order-date">{{ formatDate(order.created_at) }}</span>
+            </div>
             <span class="status-badge" :class="`status-${order.status}`">{{ statusLabels[order.status] || order.status }}</span>
           </div>
+          <ol v-if="progressIndex(order.status) !== -1" class="progress" :aria-label="`Avancement : ${statusLabels[order.status]}`">
+            <li
+              v-for="(step, index) in progressSteps"
+              :key="step"
+              :class="{ reached: index <= progressIndex(order.status) }"
+            >
+              {{ statusLabels[step] }}
+            </li>
+          </ol>
           <p class="order-items">
             <span v-for="(item, index) in order.items" :key="item.slug">
               {{ item.qty }} x {{ item.name }}<span v-if="index < order.items.length - 1">, </span>
@@ -123,6 +155,55 @@ h2 {
   border-radius: 999px;
   background: var(--cream-deep);
   color: var(--text);
+}
+
+.order-date {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.empty {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+}
+
+.progress {
+  list-style: none;
+  display: flex;
+  gap: 6px;
+  padding: 0;
+  margin: 0 0 12px;
+}
+
+.progress li {
+  flex: 1;
+  padding-top: 8px;
+  border-top: 4px solid var(--line);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.progress li.reached {
+  border-top-color: var(--green);
+  color: var(--green-dark);
+}
+
+.status-nouvelle {
+  background: #fcebd9;
+  color: #a3621b;
+}
+
+.status-confirmee {
+  background: #dfe8f5;
+  color: #2d5591;
+}
+
+.status-prete {
+  background: #e6dff5;
+  color: #5c3d91;
 }
 
 .status-livree {
