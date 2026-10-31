@@ -2,10 +2,16 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import AdminNav from "../../components/admin/AdminNav.vue";
 import ImageUploader from "../../components/admin/ImageUploader.vue";
+import LoadError from "../../components/LoadError.vue";
+import { useAdminResource } from "../../composables/useAdminResource.js";
 
-function handleImageUploaded(product, data) {
-  Object.assign(product, data.product);
-}
+const { items: products, loading, loadError, load, create, update, remove, applyUploaded } = useAdminResource({
+  endpoint: "/api/admin/products",
+  listKey: "products",
+  itemKey: "product"
+});
+
+const handleImageUploaded = applyUploaded;
 
 const CATEGORIES = ["fruit", "légume", "herbes & épices", "autre"];
 const UNITS = ["kg", "pièce", "filet", "barquette", "botte", "sachet", "litre"];
@@ -17,52 +23,21 @@ const categoryLabels = {
   autre: "📦 Autre"
 };
 
-function slugify(text) {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
-
-const products = ref([]);
-const loading = ref(true);
 const error = ref("");
 const savedId = ref(null);
 
 const newProduct = reactive({ name: "", unit: "kg", price: "", category: "fruit" });
 
-async function loadProducts() {
-  loading.value = true;
-  const res = await fetch("/api/admin/products");
-  if (res.ok) {
-    const data = await res.json();
-    products.value = data.products || [];
-  }
-  loading.value = false;
-}
-
 async function updateProduct(product, patch) {
-  const res = await fetch(`/api/admin/products/${product.id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(patch)
-  });
-  if (res.ok) {
-    const data = await res.json();
-    Object.assign(product, data.product);
-    savedId.value = product.id;
-    setTimeout(() => {
-      if (savedId.value === product.id) savedId.value = null;
-    }, 1200);
-  }
+  if (!(await update(product, patch))) return;
+  savedId.value = product.id;
+  setTimeout(() => {
+    if (savedId.value === product.id) savedId.value = null;
+  }, 1200);
 }
 
-async function removeProduct(product) {
-  if (!confirm(`Supprimer "${product.name}" ? Cette action est définitive.`)) return;
-  await fetch(`/api/admin/products/${product.id}`, { method: "DELETE" });
-  products.value = products.value.filter((p) => p.id !== product.id);
+function removeProduct(product) {
+  return remove(product, `Supprimer "${product.name}" ? Cette action est définitive.`);
 }
 
 async function addProduct() {
@@ -71,17 +46,11 @@ async function addProduct() {
     error.value = "Le nom et le prix sont obligatoires.";
     return;
   }
-  const res = await fetch("/api/admin/products", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...newProduct, slug: slugify(newProduct.name) })
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    error.value = data.error || "Impossible d'ajouter l'article.";
+  const result = await create({ ...newProduct });
+  if (!result.ok) {
+    error.value = result.error;
     return;
   }
-  products.value.push(data.product);
   newProduct.name = "";
   newProduct.price = "";
 }
@@ -96,7 +65,7 @@ const grouped = computed(() => {
   return byCategory;
 });
 
-onMounted(loadProducts);
+onMounted(load);
 </script>
 
 <template>
@@ -133,6 +102,7 @@ onMounted(loadProducts);
     </form>
 
     <p v-if="loading" class="loading-note">Chargement…</p>
+    <LoadError v-else-if="loadError" :message="loadError" @retry="load" />
     <p v-else-if="products.length === 0" class="loading-note">Aucun article pour le moment.</p>
 
     <div v-for="category in CATEGORIES.filter((c) => grouped[c]?.length)" :key="category" class="category-block">

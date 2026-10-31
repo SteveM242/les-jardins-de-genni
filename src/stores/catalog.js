@@ -1,4 +1,5 @@
 import { reactive } from "vue";
+import { api } from "../api.js";
 
 const state = reactive({
   baskets: [],
@@ -11,19 +12,16 @@ const state = reactive({
 async function load() {
   if (state.loaded || state.loading) return;
   state.loading = true;
-  try {
-    const [basketsRes, productsRes] = await Promise.all([
-      fetch("/api/baskets").then((r) => r.json()),
-      fetch("/api/products").then((r) => r.json())
-    ]);
-    state.baskets = basketsRes.baskets || [];
-    state.products = productsRes.products || [];
+  state.error = "";
+  const [basketsRes, productsRes] = await Promise.all([api("/api/baskets"), api("/api/products")]);
+  if (basketsRes.ok && productsRes.ok) {
+    state.baskets = basketsRes.data.baskets || [];
+    state.products = productsRes.data.products || [];
     state.loaded = true;
-  } catch {
-    state.error = "Impossible de charger le catalogue.";
-  } finally {
-    state.loading = false;
+  } else {
+    state.error = "Impossible de charger le catalogue. Vérifiez votre connexion puis réessayez.";
   }
+  state.loading = false;
 }
 
 function findBasketBySlug(slug) {

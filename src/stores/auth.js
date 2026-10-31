@@ -1,4 +1,5 @@
 import { reactive } from "vue";
+import { api } from "../api.js";
 
 const state = reactive({
   customer: null,
@@ -6,39 +7,28 @@ const state = reactive({
 });
 
 async function fetchMe() {
-  const res = await fetch("/api/auth/me");
-  const data = await res.json();
-  state.customer = data.customer || null;
+  const res = await api("/api/auth/me");
+  state.customer = res.data?.customer || null;
   state.loaded = true;
   return state.customer;
 }
 
 async function signup({ name, email, phone, password }) {
-  const res = await fetch("/api/auth/signup", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, email, phone, password })
-  });
-  const data = await res.json();
-  if (!res.ok || !data.ok) throw new Error(data.error || "Inscription impossible.");
-  state.customer = data.customer;
-  return data.customer;
+  const res = await api("/api/auth/signup", { method: "POST", body: { name, email, phone, password } });
+  if (!res.ok) throw new Error(res.error || "Inscription impossible.");
+  state.customer = res.data.customer;
+  return state.customer;
 }
 
 async function login({ email, password }) {
-  const res = await fetch("/api/auth/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password })
-  });
-  const data = await res.json();
-  if (!res.ok || !data.ok) throw new Error(data.error || "Connexion impossible.");
-  state.customer = data.customer;
-  return data.customer;
+  const res = await api("/api/auth/login", { method: "POST", body: { email, password } });
+  if (!res.ok) throw new Error(res.error || "Connexion impossible.");
+  state.customer = res.data.customer;
+  return state.customer;
 }
 
 async function logout() {
-  await fetch("/api/auth/logout", { method: "POST" });
+  await api("/api/auth/logout", { method: "POST" });
   state.customer = null;
 }
 

@@ -2,38 +2,22 @@
 import { onMounted, reactive, ref } from "vue";
 import AdminNav from "../../components/admin/AdminNav.vue";
 import ImageUploader from "../../components/admin/ImageUploader.vue";
+import LoadError from "../../components/LoadError.vue";
+import { useAdminResource } from "../../composables/useAdminResource.js";
 
-function handleImageUploaded(basket, data) {
-  Object.assign(basket, data.basket);
-}
+const { items: baskets, loading, loadError, load, create, update, remove, applyUploaded } = useAdminResource({
+  endpoint: "/api/admin/baskets",
+  listKey: "baskets",
+  itemKey: "basket"
+});
 
-const baskets = ref([]);
-const loading = ref(true);
+const handleImageUploaded = applyUploaded;
+
 const error = ref("");
 const newBasket = reactive({ name: "", price: "", summary: "" });
 const newItemDraft = reactive({});
 
-async function loadBaskets() {
-  loading.value = true;
-  const res = await fetch("/api/admin/baskets");
-  if (res.ok) {
-    const data = await res.json();
-    baskets.value = data.baskets || [];
-  }
-  loading.value = false;
-}
-
-async function updateBasket(basket, patch) {
-  const res = await fetch(`/api/admin/baskets/${basket.id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(patch)
-  });
-  if (res.ok) {
-    const data = await res.json();
-    Object.assign(basket, data.basket);
-  }
-}
+const updateBasket = update;
 
 async function addBasket() {
   error.value = "";
@@ -41,42 +25,32 @@ async function addBasket() {
     error.value = "Le nom et le prix sont obligatoires.";
     return;
   }
-  const res = await fetch("/api/admin/baskets", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(newBasket)
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    error.value = data.error || "Impossible de créer ce panier.";
+  const result = await create({ ...newBasket }, { prepend: true });
+  if (!result.ok) {
+    error.value = result.error;
     return;
   }
-  baskets.value.unshift(data.basket);
   newBasket.name = "";
   newBasket.price = "";
   newBasket.summary = "";
 }
 
-async function removeBasket(basket) {
-  if (!confirm(`Supprimer définitivement "${basket.name}" ?`)) return;
-  await fetch(`/api/admin/baskets/${basket.id}`, { method: "DELETE" });
-  baskets.value = baskets.value.filter((b) => b.id !== basket.id);
+function removeBasket(basket) {
+  return remove(basket, `Supprimer définitivement "${basket.name}" ?`);
 }
 
 function addItem(basket) {
   const text = (newItemDraft[basket.id] || "").trim();
   if (!text) return;
-  const items = [...basket.items, text];
-  updateBasket(basket, { items });
+  updateBasket(basket, { items: [...basket.items, text] });
   newItemDraft[basket.id] = "";
 }
 
 function removeItem(basket, index) {
-  const items = basket.items.filter((_, i) => i !== index);
-  updateBasket(basket, { items });
+  updateBasket(basket, { items: basket.items.filter((_, i) => i !== index) });
 }
 
-onMounted(loadBaskets);
+onMounted(load);
 </script>
 
 <template>
@@ -108,6 +82,7 @@ onMounted(loadBaskets);
     </form>
 
     <p v-if="loading">Chargement…</p>
+    <LoadError v-else-if="loadError" :message="loadError" @retry="load" />
 
     <div v-else class="baskets-grid">
       <div v-for="basket in baskets" :key="basket.id" class="basket-card">

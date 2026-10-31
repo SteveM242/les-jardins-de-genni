@@ -1,21 +1,17 @@
 <script setup>
 import { onMounted, reactive, ref } from "vue";
 import AdminNav from "../../components/admin/AdminNav.vue";
+import LoadError from "../../components/LoadError.vue";
+import { useAdminResource } from "../../composables/useAdminResource.js";
 
-const discounts = ref([]);
-const loading = ref(true);
+const { items: discounts, loading, loadError, load, create, update, remove } = useAdminResource({
+  endpoint: "/api/admin/discounts",
+  listKey: "discounts",
+  itemKey: "discount"
+});
+
 const error = ref("");
 const newDiscount = reactive({ code: "", type: "percent", value: "", maxUses: "" });
-
-async function loadDiscounts() {
-  loading.value = true;
-  const res = await fetch("/api/admin/discounts");
-  if (res.ok) {
-    const data = await res.json();
-    discounts.value = data.discounts || [];
-  }
-  loading.value = false;
-}
 
 async function addDiscount() {
   error.value = "";
@@ -23,45 +19,33 @@ async function addDiscount() {
     error.value = "Code et valeur requis.";
     return;
   }
-  const res = await fetch("/api/admin/discounts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const result = await create(
+    {
       code: newDiscount.code,
       type: newDiscount.type,
       value: newDiscount.value,
       maxUses: newDiscount.maxUses || null
-    })
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    error.value = data.error || "Impossible de créer ce code.";
+    },
+    { prepend: true }
+  );
+  if (!result.ok) {
+    error.value = result.error;
     return;
   }
-  discounts.value.unshift(data.discount);
   newDiscount.code = "";
   newDiscount.value = "";
   newDiscount.maxUses = "";
 }
 
-async function toggleActive(discount) {
-  const res = await fetch(`/api/admin/discounts/${discount.id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ active: !discount.active })
-  });
-  if (res.ok) {
-    const data = await res.json();
-    Object.assign(discount, data.discount);
-  }
+function toggleActive(discount) {
+  return update(discount, { active: !discount.active });
 }
 
-async function removeDiscount(discount) {
-  await fetch(`/api/admin/discounts/${discount.id}`, { method: "DELETE" });
-  discounts.value = discounts.value.filter((d) => d.id !== discount.id);
+function removeDiscount(discount) {
+  return remove(discount, `Supprimer le code "${discount.code}" ?`);
 }
 
-onMounted(loadDiscounts);
+onMounted(load);
 </script>
 
 <template>
@@ -81,8 +65,11 @@ onMounted(loadDiscounts);
     <p v-if="error" class="form-error">{{ error }}</p>
 
     <p v-if="loading">Chargement…</p>
+    <LoadError v-else-if="loadError" :message="loadError" @retry="load" />
+    <p v-else-if="discounts.length === 0" class="empty-note">Aucun code promo pour le moment.</p>
 
-    <table v-else class="discounts-table">
+    <div v-else class="table-scroll">
+    <table class="discounts-table">
       <thead>
         <tr>
           <th>Code</th>
@@ -108,6 +95,7 @@ onMounted(loadDiscounts);
         </tr>
       </tbody>
     </table>
+    </div>
   </AdminNav>
 </template>
 
@@ -144,14 +132,23 @@ h1 {
   margin: 8px 0 20px;
 }
 
+.empty-note {
+  color: var(--muted);
+}
+
+.table-scroll {
+  overflow-x: auto;
+  margin-top: 20px;
+}
+
 .discounts-table {
+  min-width: 560px;
   width: 100%;
   border-collapse: collapse;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
-  margin-top: 20px;
 }
 
 .discounts-table th,

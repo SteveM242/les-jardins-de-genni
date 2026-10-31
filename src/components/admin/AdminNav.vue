@@ -9,6 +9,12 @@ async function logout() {
   await adminAuth.logout();
   router.push("/admin/connexion");
 }
+
+async function logoutEverywhere() {
+  if (!confirm("Déconnecter tous vos appareils (téléphone, ordinateur…) ?")) return;
+  await adminAuth.logoutEverywhere();
+  router.push("/admin/connexion");
+}
 </script>
 
 <template>
@@ -22,6 +28,7 @@ async function logout() {
           <RouterLink to="/admin/paniers">Paniers</RouterLink>
           <RouterLink to="/admin/promos">Codes promo</RouterLink>
         </nav>
+        <button type="button" class="link-logout" @click="logoutEverywhere">Déconnecter tous les appareils</button>
         <button type="button" class="btn ghost compact" @click="logout">Déconnexion</button>
       </div>
     </header>
@@ -68,6 +75,28 @@ nav a {
 nav a.router-link-exact-active {
   color: #fff;
   text-decoration: underline;
+}
+
+.link-logout {
+  background: none;
+  border: 0;
+  color: #d9e4d2;
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .admin-header-inner {
+    gap: 12px;
+  }
+
+  nav {
+    flex-basis: 100%;
+    order: 3;
+    flex-wrap: wrap;
+  }
 }
 
 .btn.ghost.compact {

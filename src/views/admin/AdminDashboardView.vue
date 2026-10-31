@@ -1,10 +1,21 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import AdminNav from "../../components/admin/AdminNav.vue";
+import LoadError from "../../components/LoadError.vue";
+import { api } from "../../api.js";
+import { useToast } from "../../stores/toast.js";
+
+const toast = useToast();
 
 const orders = ref([]);
+const counts = ref({ all: 0 });
+const total = ref(0);
+const pageSize = ref(20);
+const page = ref(1);
 const loading = ref(true);
+const loadError = ref("");
 const activeFilter = ref("all");
+const search = ref("");
 
 const statuses = [
   { value: "nouvelle", label: "Nouvelle" },
@@ -22,38 +33,45 @@ const nextStatus = {
   prete: { value: "livree", label: "Marquer livrée" }
 };
 
-async function loadOrders() {
-  loading.value = true;
-  const res = await fetch("/api/admin/orders");
+const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
+
+// silent : rafraîchissement en arrière-plan, sans écran de chargement ni message d'erreur.
+async function loadOrders({ silent = false } = {}) {
+  if (!silent) loading.value = true;
+  const params = new URLSearchParams({ page: String(page.value) });
+  if (activeFilter.value !== "all") params.set("status", activeFilter.value);
+  if (search.value.trim()) params.set("q", search.value.trim());
+
+  const res = await api(`/api/admin/orders?${params}`);
   if (res.ok) {
-    const data = await res.json();
-    orders.value = data.orders || [];
+    orders.value = res.data.orders;
+    counts.value = res.data.counts;
+    total.value = res.data.total;
+    pageSize.value = res.data.pageSize;
+    loadError.value = "";
+  } else if (!silent) {
+    loadError.value = res.error;
   }
   loading.value = false;
 }
 
 async function updateStatus(order, status) {
-  const res = await fetch(`/api/admin/orders/${order.id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status })
-  });
-  if (res.ok) {
-    const data = await res.json();
-    order.status = data.order.status;
+  if (status === order.status) return;
+  const res = await api(`/api/admin/orders/${order.id}`, { method: "PATCH", body: { status } });
+  if (!res.ok) {
+    toast.error(res.error);
+    await loadOrders({ silent: true });
+    return;
   }
+  toast.success(`Commande ${order.order_number} : ${statusLabels[status].toLowerCase()}.`);
+  // La commande peut sortir du filtre actif et les compteurs changent : on recharge.
+  await loadOrders({ silent: true });
 }
 
-const counts = computed(() => {
-  const c = { all: orders.value.length };
-  for (const s of statuses) c[s.value] = orders.value.filter((o) => o.status === s.value).length;
-  return c;
-});
-
-const filteredOrders = computed(() => {
-  if (activeFilter.value === "all") return orders.value;
-  return orders.value.filter((o) => o.status === activeFilter.value);
-});
+function goToPage(next) {
+  page.value = Math.min(Math.max(1, next), pageCount.value);
+  loadOrders();
+}
 
 function formatDate(iso) {
   return new Date(iso).toLocaleString("fr-FR", {
@@ -65,14 +83,45 @@ function formatDate(iso) {
   });
 }
 
-onMounted(loadOrders);
+watch(activeFilter, () => {
+  page.value = 1;
+  loadOrders();
+});
+
+let searchTimer = null;
+watch(search, () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    page.value = 1;
+    loadOrders();
+  }, 300);
+});
+
+// Les nouvelles commandes apparaissent seules : rafraîchissement discret toutes les minutes.
+let refreshTimer = null;
+onMounted(() => {
+  loadOrders();
+  refreshTimer = setInterval(() => {
+    if (document.visibilityState === "visible") loadOrders({ silent: true });
+  }, 60000);
+});
+
+onBeforeUnmount(() => {
+  clearInterval(refreshTimer);
+  clearTimeout(searchTimer);
+});
 </script>
 
 <template>
   <AdminNav>
     <h1>Commandes</h1>
 
-    <div class="filters">
+    <label class="search-field">
+      <span class="sr-only">Rechercher une commande</span>
+      <input v-model="search" type="search" placeholder="Rechercher : n° de commande, nom, téléphone, email" />
+    </label>
+
+    <div class="filters" role="group" aria-label="Filtrer par statut">
       <button
         type="button"
         class="filter-chip"
@@ -94,11 +143,13 @@ onMounted(loadOrders);
     </div>
 
     <p v-if="loading">Chargement…</p>
-    <p v-else-if="orders.length === 0">Aucune commande pour le moment.</p>
-    <p v-else-if="filteredOrders.length === 0" class="empty-filter">Aucune commande avec ce statut.</p>
+    <LoadError v-else-if="loadError" :message="loadError" @retry="loadOrders" />
+    <p v-else-if="orders.length === 0" class="empty-filter">
+      {{ search || activeFilter !== "all" ? "Aucune commande ne correspond à ce filtre." : "Aucune commande pour le moment." }}
+    </p>
 
     <div v-else class="orders-list">
-      <article v-for="order in filteredOrders" :key="order.id" class="order-card" :class="{ 'is-new': order.status === 'nouvelle' }">
+      <article v-for="order in orders" :key="order.id" class="order-card" :class="{ 'is-new': order.status === 'nouvelle' }">
         <div class="order-header">
           <div>
             <strong class="order-number">Commande {{ order.order_number }}</strong>
@@ -111,8 +162,8 @@ onMounted(loadOrders);
           <div class="order-col">
             <p class="col-label">Client</p>
             <p>{{ order.name }}</p>
-            <p class="muted">{{ order.phone }}</p>
-            <p v-if="order.email" class="muted">{{ order.email }}</p>
+            <p class="muted"><a :href="`tel:${order.phone}`">{{ order.phone }}</a></p>
+            <p v-if="order.email" class="muted"><a :href="`mailto:${order.email}`">{{ order.email }}</a></p>
           </div>
 
           <div class="order-col">
@@ -136,7 +187,11 @@ onMounted(loadOrders);
         </div>
 
         <div class="order-footer">
-          <select :value="order.status" @change="updateStatus(order, $event.target.value)">
+          <select
+            :value="order.status"
+            :aria-label="`Statut de la commande ${order.order_number}`"
+            @change="updateStatus(order, $event.target.value)"
+          >
             <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
           </select>
           <button
@@ -150,6 +205,12 @@ onMounted(loadOrders);
         </div>
       </article>
     </div>
+
+    <nav v-if="!loading && !loadError && pageCount > 1" class="pagination" aria-label="Pagination des commandes">
+      <button type="button" class="btn ghost" :disabled="page <= 1" @click="goToPage(page - 1)">← Précédentes</button>
+      <span>Page {{ page }} sur {{ pageCount }} ({{ total }} commandes)</span>
+      <button type="button" class="btn ghost" :disabled="page >= pageCount" @click="goToPage(page + 1)">Suivantes →</button>
+    </nav>
   </AdminNav>
 </template>
 
@@ -157,6 +218,54 @@ onMounted(loadOrders);
 h1 {
   font-size: 24px;
   margin: 0 0 20px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.search-field {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.search-field input {
+  width: 100%;
+  font: inherit;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: #fff;
+}
+
+.muted a {
+  color: inherit;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pagination .btn {
+  padding: 9px 14px;
+  font-size: 13px;
+}
+
+.pagination .btn:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .filters {

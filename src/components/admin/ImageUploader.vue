@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from "vue";
+import { api } from "../../api.js";
 
 const props = defineProps({
   imageUrl: { type: String, default: null },
@@ -21,26 +22,20 @@ async function handleFile(event) {
   error.value = "";
   uploading.value = true;
 
-  try {
-    const formData = new FormData();
-    formData.append("image", file);
-    const res = await fetch(props.uploadUrl, { method: "POST", body: formData });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || "Échec de l'envoi.");
-    emit("uploaded", data);
-  } catch (err) {
-    error.value = err.message;
-  } finally {
-    uploading.value = false;
-    event.target.value = "";
-  }
+  const formData = new FormData();
+  formData.append("image", file);
+  const res = await api(props.uploadUrl, { method: "POST", formData });
+  if (res.ok) emit("uploaded", res.data);
+  else error.value = res.error || "Échec de l'envoi.";
+  uploading.value = false;
+  event.target.value = "";
 }
 </script>
 
 <template>
   <div class="image-uploader">
-    <div class="thumb" @click="pickFile">
-      <img v-if="imageUrl" :src="imageUrl" alt="" />
+    <div class="thumb" role="button" tabindex="0" aria-label="Choisir une photo" @click="pickFile" @keydown.enter.prevent="pickFile" @keydown.space.prevent="pickFile">
+      <img v-if="imageUrl" :src="imageUrl" alt="Photo actuelle" />
       <span v-else class="placeholder">📷</span>
       <div v-if="uploading" class="overlay">…</div>
     </div>
@@ -48,7 +43,7 @@ async function handleFile(event) {
       {{ imageUrl ? "Changer la photo" : "Ajouter une photo" }}
     </button>
     <input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp" hidden @change="handleFile" />
-    <p v-if="error" class="upload-error">{{ error }}</p>
+    <p v-if="error" class="upload-error" role="alert">{{ error }}</p>
   </div>
 </template>
 
