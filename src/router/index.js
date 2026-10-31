@@ -1,4 +1,6 @@
+import { nextTick } from "vue";
 import { createRouter, createWebHistory } from "vue-router";
+import { setPageTitle, titleForPath } from "../pageMeta.js";
 import HomeView from "../views/HomeView.vue";
 import PanierDetailView from "../views/PanierDetailView.vue";
 import CatalogView from "../views/CatalogView.vue";
@@ -68,6 +70,14 @@ router.beforeEach(async (to) => {
   }
 
   return true;
+});
+
+// Titre d'onglet + focus sur le contenu à chaque navigation (lecteurs d'écran, clavier).
+router.afterEach((to, from) => {
+  if (!to.path.startsWith("/panier/")) setPageTitle(titleForPath(to.path));
+  if (from.name !== undefined || from.matched.length > 0) {
+    nextTick(() => document.getElementById("contenu")?.focus({ preventScroll: true }));
+  }
 });
 
 export default router;

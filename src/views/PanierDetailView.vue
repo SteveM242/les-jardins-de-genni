@@ -1,5 +1,6 @@
 <script setup>
-import { computed, ref, onMounted } from "vue";
+import { computed, ref, onMounted, watch } from "vue";
+import { setPageTitle } from "../pageMeta.js";
 import { useRoute, RouterLink, useRouter } from "vue-router";
 import { useCatalog } from "../stores/catalog.js";
 import { whatsappOrderLink } from "../data/site.js";
@@ -11,6 +12,7 @@ const router = useRouter();
 const catalog = useCatalog();
 onMounted(catalog.load);
 const panier = computed(() => catalog.findBasketBySlug(route.params.slug));
+watch(panier, (basket) => setPageTitle(basket ? basket.name : "Panier introuvable"), { immediate: true });
 const cart = useCart();
 const qty = ref(1);
 
