@@ -45,6 +45,27 @@ function deleteUploadedFile(imagePath) {
   fs.unlink(filePath, () => {});
 }
 
+function slugify(text) {
+  return String(text)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+async function uniqueSlug(table, base) {
+  let slug = base || "panier";
+  let suffix = 1;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { rows } = await query(`SELECT 1 FROM ${table} WHERE slug = $1`, [slug]);
+    if (rows.length === 0) return slug;
+    suffix += 1;
+    slug = `${base}-${suffix}`;
+  }
+}
+
 function attachCustomer(req, _res, next) {
   const token = req.cookies?.customer_token;
   const payload = token ? verifyToken(token) : null;
@@ -455,17 +476,43 @@ app.get("/api/admin/baskets", requireRole("admin"), async (_req, res) => {
   res.json({ ok: true, baskets: rows });
 });
 
+app.post("/api/admin/baskets", requireRole("admin"), async (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const price = Number(req.body.price);
+  if (!name || !price) {
+    return res.status(400).json({ ok: false, error: "Le nom et le prix sont obligatoires." });
+  }
+  const slug = await uniqueSlug("baskets", slugify(name));
+  const summary = String(req.body.summary || "").trim();
+  const items = Array.isArray(req.body.items) ? req.body.items.filter(Boolean) : [];
+
+  const { rows } = await query(
+    `INSERT INTO baskets (slug, name, icon, price, summary, details, origin, item_count, items)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    [slug, name, "🧺", price, summary, "", "", items.length, JSON.stringify(items)]
+  );
+  res.json({ ok: true, basket: rows[0] });
+});
+
 app.patch("/api/admin/baskets/:id", requireRole("admin"), async (req, res) => {
-  const { name, price, summary, details, active } = req.body;
+  const { name, price, summary, details, origin, active } = req.body;
+  const items = Array.isArray(req.body.items) ? req.body.items.filter(Boolean) : null;
   const { rows } = await query(
     `UPDATE baskets SET
        name = COALESCE($1, name), price = COALESCE($2, price), summary = COALESCE($3, summary),
-       details = COALESCE($4, details), active = COALESCE($5, active)
-     WHERE id = $6 RETURNING *`,
-    [name, price, summary, details, active, req.params.id]
+       details = COALESCE($4, details), origin = COALESCE($5, origin), active = COALESCE($6, active),
+       items = COALESCE($7, items), item_count = COALESCE($8, item_count)
+     WHERE id = $9 RETURNING *`,
+    [name, price, summary, details, origin, active, items ? JSON.stringify(items) : null, items ? items.length : null, req.params.id]
   );
   if (!rows[0]) return res.status(404).json({ ok: false, error: "Panier introuvable." });
   res.json({ ok: true, basket: rows[0] });
+});
+
+app.delete("/api/admin/baskets/:id", requireRole("admin"), async (req, res) => {
+  const { rows } = await query("DELETE FROM baskets WHERE id = $1 RETURNING image", [req.params.id]);
+  if (rows[0]) deleteUploadedFile(rows[0].image);
+  res.json({ ok: true });
 });
 
 app.post(

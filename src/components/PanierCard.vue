@@ -25,8 +25,9 @@ function handleAdd() {
 <template>
   <article class="panier-card">
     <div class="panier-card-media">
-      <img :src="panier.image" :alt="panier.name" loading="lazy" />
-      <span class="panier-card-icon" aria-hidden="true">{{ panier.icon }}</span>
+      <img v-if="panier.image" :src="panier.image" :alt="panier.name" loading="lazy" />
+      <span v-else class="panier-card-placeholder" aria-hidden="true">{{ panier.icon || "🧺" }}</span>
+      <span v-if="panier.image" class="panier-card-icon" aria-hidden="true">{{ panier.icon }}</span>
     </div>
 
     <div class="panier-card-body">
@@ -73,6 +74,16 @@ function handleAdd() {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.panier-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  opacity: 0.5;
 }
 
 .panier-card-icon {
