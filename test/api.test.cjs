@@ -264,3 +264,35 @@ test("un pourcentage supérieur à 100 est refusé côté admin", async () => {
   });
   assert.equal(res.status, 400);
 });
+
+function futureDay(days) {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+test("jour souhaité : enregistré si valide, vide sinon", async () => {
+  const day = futureDay(3);
+  const withDate = await app.request("POST", "/api/orders", {
+    body: { customer: { name: "Marie", phone: "0696000000", desiredDate: day }, items: [{ key: "a", type: "product", slug: "igname", qty: 1 }] }
+  });
+  assert.equal(withDate.status, 200);
+  assert.equal(calls.find((c) => c.text.includes("INSERT INTO orders")).params[13], day);
+
+  calls.length = 0;
+  const without = await app.request("POST", "/api/orders", {
+    body: { customer: { name: "Marie", phone: "0696000000" }, items: [{ key: "a", type: "product", slug: "igname", qty: 1 }] }
+  });
+  assert.equal(without.status, 200);
+  assert.equal(calls.find((c) => c.text.includes("INSERT INTO orders")).params[13], null);
+});
+
+test("jour souhaité : passé, trop lointain ou invalide -> 400 sans commande", async () => {
+  for (const desiredDate of [futureDay(-5), futureDay(90), "pas-une-date"]) {
+    calls.length = 0;
+    const res = await app.request("POST", "/api/orders", {
+      body: { customer: { name: "Marie", phone: "0696000000", desiredDate }, items: [{ key: "a", type: "product", slug: "igname", qty: 1 }] }
+    });
+    assert.equal(res.status, 400, desiredDate);
+    assert.match(res.json.error, /jour souhaité|jours/i);
+    assert.ok(!calls.some((c) => c.text.includes("INSERT INTO orders")));
+  }
+});

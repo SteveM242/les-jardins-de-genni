@@ -14,6 +14,7 @@ const {
   roundMoney
 } = require("../lib/pricing.cjs");
 const { resolveLines, findPriceChanges } = require("../lib/cart.cjs");
+const { DesiredDateError, parseDesiredDate } = require("../lib/dates.cjs");
 
 const router = express.Router();
 
@@ -74,6 +75,14 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
     return res.status(400).json({ ok: false, error: "Merci d'indiquer l'adresse de livraison." });
   }
 
+  let desiredDate;
+  try {
+    desiredDate = parseDesiredDate(customerInfo.desiredDate);
+  } catch (err) {
+    if (err instanceof DesiredDateError) return res.status(400).json({ ok: false, error: err.message });
+    throw err;
+  }
+
   const requestedItems = Array.isArray(req.body.items) ? req.body.items : [];
   if (requestedItems.length === 0) {
     return res.status(400).json({ ok: false, error: "Le panier est vide." });
@@ -124,11 +133,11 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
 
       await client.query(
         `INSERT INTO orders
-          (order_number, customer_id, name, phone, email, fulfillment, address, notes, items, discount_code, subtotal, discount_amount, total)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+          (order_number, customer_id, name, phone, email, fulfillment, address, notes, items, discount_code, subtotal, discount_amount, total, desired_date)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
         [
           orderNumber, req.customer?.sub || null, name, phone, email, fulfillment, address, notes,
-          JSON.stringify(items), discountCode, subtotal, discountAmount, computeTotal(subtotal, discountAmount)
+          JSON.stringify(items), discountCode, subtotal, discountAmount, computeTotal(subtotal, discountAmount), desiredDate
         ]
       );
     });
@@ -139,7 +148,7 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
 
   const total = computeTotal(subtotal, discountAmount);
   sendOrderEmail({
-    orderNumber, name, phone, email, fulfillment, address, notes, items, subtotal, discountAmount, total
+    orderNumber, name, phone, email, fulfillment, address, notes, items, subtotal, discountAmount, total, desiredDate
   }).catch((err) => console.error("[orders] échec envoi email:", err.message));
 
   res.json({ ok: true, orderId: orderNumber, subtotal, discountAmount, total, customer: { name } });

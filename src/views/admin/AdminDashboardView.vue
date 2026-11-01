@@ -91,6 +91,10 @@ function goToPage(next) {
   loadOrders();
 }
 
+function formatDay(day) {
+  return new Date(`${day}T00:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+}
+
 function formatDate(iso) {
   return new Date(iso).toLocaleString("fr-FR", {
     day: "2-digit",
@@ -211,6 +215,7 @@ onBeforeUnmount(() => {
           <div class="order-col">
             <p class="col-label">{{ order.fulfillment === "livraison" ? "Livraison" : "Retrait" }}</p>
             <p v-if="order.fulfillment === 'livraison' && order.address">{{ order.address }}</p>
+            <p v-if="order.desired_date" class="desired">Jour souhaité : {{ formatDay(order.desired_date) }}</p>
             <p v-if="order.notes" class="notes">{{ order.notes }}</p>
           </div>
 
@@ -482,6 +487,11 @@ h1 {
   font-size: 12px;
   font-weight: 600;
   margin-top: 6px !important;
+}
+
+.desired {
+  font-weight: 700;
+  color: var(--green-dark);
 }
 
 .notes {

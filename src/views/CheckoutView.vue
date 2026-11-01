@@ -6,6 +6,7 @@ import { useCart } from "../stores/cart.js";
 import { useAuth } from "../stores/auth.js";
 import { site, whatsappCartLink, whatsappOrderConfirmLink } from "../data/site.js";
 import CartLineContents from "../components/CartLineContents.vue";
+import { useSiteContent } from "../stores/siteContent.js";
 
 const cart = useCart();
 const auth = useAuth();
@@ -13,6 +14,21 @@ const route = useRoute();
 const router = useRouter();
 
 const MAX_QTY = 50;
+
+const siteContent = useSiteContent();
+
+// Jour souhaité : de aujourd'hui à +60 jours (le serveur revérifie).
+function isoDay(offset = 0) {
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+const minDay = isoDay(0);
+const maxDay = isoDay(60);
+
+function formatDay(day) {
+  return new Date(`${day}T00:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+}
 const STEP_QUERY = { 2: "coordonnees", 3: "relecture" };
 
 const form = reactive({
@@ -22,10 +38,16 @@ const form = reactive({
   fulfillment: "retrait",
   address: "",
   notes: "",
+  desiredDate: "",
   website: "" // honeypot — doit rester vide
 });
 
-const errors = reactive({ name: "", phone: "", email: "", address: "" });
+const errors = reactive({ name: "", phone: "", email: "", address: "", desiredDate: "" });
+
+// Infos de retrait / livraison saisies par Genni, rappelées sous le choix du mode.
+const modeInfo = computed(() =>
+  form.fulfillment === "livraison" ? siteContent.state.checkout.deliveryInfo : siteContent.state.checkout.pickupInfo
+);
 
 const status = ref("idle"); // idle | sending | success | error
 const errorMessage = ref("");
@@ -47,7 +69,11 @@ function fieldErrors() {
       ? ""
       : "Merci d'indiquer un numéro de téléphone valide (8 chiffres minimum).",
     email: !form.email.trim() || /^\S+@\S+\.\S+$/.test(form.email.trim()) ? "" : "Cette adresse email semble incorrecte.",
-    address: form.fulfillment === "livraison" && !form.address.trim() ? "Merci d'indiquer l'adresse de livraison." : ""
+    address: form.fulfillment === "livraison" && !form.address.trim() ? "Merci d'indiquer l'adresse de livraison." : "",
+    desiredDate:
+      form.desiredDate && (form.desiredDate < minDay || form.desiredDate > maxDay)
+        ? "Choisissez un jour dans les 60 prochains jours."
+        : ""
   };
 }
 
@@ -198,7 +224,8 @@ async function submitOrder() {
         email: form.email,
         fulfillment: form.fulfillment,
         address: form.fulfillment === "livraison" ? form.address : "",
-        notes: form.notes
+        notes: form.notes,
+        desiredDate: form.desiredDate
       },
       items: cart.toPayload(),
       discountCode: discount.value?.code || "",
@@ -436,6 +463,22 @@ async function submitOrder() {
                 </label>
               </fieldset>
 
+              <p v-if="modeInfo" class="mode-info">{{ modeInfo }}</p>
+
+              <div class="field">
+                <label for="f-date">Jour souhaité (facultatif)</label>
+                <input
+                  id="f-date"
+                  v-model="form.desiredDate"
+                  type="date"
+                  :min="minDay"
+                  :max="maxDay"
+                  :aria-invalid="errors.desiredDate ? 'true' : undefined"
+                  :aria-describedby="errors.desiredDate ? 'f-date-error' : undefined"
+                />
+                <p v-if="errors.desiredDate" id="f-date-error" class="field-error">{{ errors.desiredDate }}</p>
+              </div>
+
               <div v-if="form.fulfillment === 'livraison'" class="field">
                 <label for="f-address">Adresse de livraison *</label>
                 <textarea
@@ -537,6 +580,10 @@ async function submitOrder() {
                   <template v-if="form.email">
                     <dt>Email</dt>
                     <dd>{{ form.email }}</dd>
+                  </template>
+                  <template v-if="form.desiredDate">
+                    <dt>Jour souhaité</dt>
+                    <dd>{{ formatDay(form.desiredDate) }}</dd>
                   </template>
                   <template v-if="form.fulfillment === 'livraison'">
                     <dt>Adresse</dt>
@@ -975,6 +1022,17 @@ h1 {
   margin: 0;
   font-size: 12px;
   color: #a3202a;
+}
+
+.mode-info {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--green-soft);
+  border: 1px solid var(--green-tint);
+  color: var(--green-dark);
+  font-size: 13px;
+  white-space: pre-line;
 }
 
 .fulfillment-field {

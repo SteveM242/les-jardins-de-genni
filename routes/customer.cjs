@@ -252,7 +252,7 @@ router.post("/account/password", rateLimits.reset, requireRole("customer"), asyn
 
 router.get("/account/orders", requireRole("customer"), async (req, res) => {
   const { rows } = await query(
-    "SELECT order_number, items, subtotal, discount_amount, total, status, fulfillment, created_at FROM orders WHERE customer_id = $1 ORDER BY created_at DESC",
+    "SELECT order_number, items, subtotal, discount_amount, total, status, fulfillment, desired_date, created_at FROM orders WHERE customer_id = $1 ORDER BY created_at DESC",
     [req.auth.sub]
   );
   res.json({ ok: true, orders: rows });
