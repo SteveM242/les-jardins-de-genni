@@ -46,6 +46,17 @@ const grouped = computed(() => {
   return byCategory;
 });
 
+// Pas de photo : un emoji par catégorie plutôt qu'un bloc vide.
+const CATEGORY_EMOJI = { fruit: "🍍", "légume": "🥦", "herbes & épices": "🌿", autre: "📦" };
+
+function emojiFor(product) {
+  return CATEGORY_EMOJI[String(product.category || "").toLowerCase()] || "🌿";
+}
+
+function formatPrice(value) {
+  return Number(value).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
 function handleAdd(product) {
   const qty = Math.min(Math.max(Math.floor(Number(qtyFor(product.slug))) || 1, 1), 50);
   quantities[product.slug] = qty;
@@ -61,7 +72,7 @@ function handleAdd(product) {
   <div class="catalog">
     <div class="container">
       <p class="eyebrow">À la carte</p>
-      <h1>Composez votre propre panier</h1>
+      <h1>Les articles à l'unité</h1>
       <p class="intro">
         En plus des paniers tout faits, vous pouvez choisir vos articles un par un, selon vos
         envies et vos quantités. Vous préférez assembler un vrai panier et le nommer ?
@@ -103,11 +114,11 @@ function handleAdd(product) {
           <div v-for="product in products" :key="product.slug" class="product-card">
             <div class="product-media">
               <img v-if="product.image" :src="product.image" :alt="product.name" loading="lazy" />
-              <span v-else class="product-placeholder" aria-hidden="true">🌿</span>
+              <span v-else class="product-placeholder" aria-hidden="true">{{ emojiFor(product) }}</span>
             </div>
             <div>
               <h3>{{ product.name }}</h3>
-              <p class="product-price">{{ product.price }} € / {{ product.unit }}</p>
+              <p class="product-price">{{ formatPrice(product.price) }} € / {{ product.unit }}</p>
             </div>
             <div class="product-actions">
               <input
@@ -229,7 +240,7 @@ h1 {
 
 .product-media {
   height: 100px;
-  background: var(--cream-deep);
+  background: linear-gradient(135deg, var(--green-tint), var(--cream-deep));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -242,8 +253,7 @@ h1 {
 }
 
 .product-placeholder {
-  font-size: 32px;
-  opacity: 0.6;
+  font-size: 44px;
 }
 
 .product-card h3 {

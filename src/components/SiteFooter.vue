@@ -73,7 +73,10 @@ import SocialLinks from "./SocialLinks.vue";
 .footer-nav,
 .footer-contact {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  align-content: start;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .footer-nav a,
@@ -81,7 +84,18 @@ import SocialLinks from "./SocialLinks.vue";
 .footer-contact span {
   text-decoration: none;
   color: #e6f2e8;
-  font-weight: 600;
+  font-weight: 500;
+}
+
+.footer-nav a:hover,
+.footer-contact a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.footer-nav .eyebrow,
+.footer-contact .eyebrow {
+  margin-bottom: 4px;
 }
 
 .footer-nav .eyebrow,

@@ -7,6 +7,7 @@ import { useCatalog } from "../stores/catalog.js";
 import { site, whatsappOrderLink } from "../data/site.js";
 import { useCart } from "../stores/cart.js";
 import LoadError from "../components/LoadError.vue";
+import PanierCard from "../components/PanierCard.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -14,6 +15,8 @@ const catalog = useCatalog();
 onMounted(catalog.load);
 const panier = computed(() => catalog.findBasketBySlug(route.params.slug));
 watch(panier, (basket) => setPageTitle(basket ? basket.name : "Panier introuvable"), { immediate: true });
+// Autres paniers à découvrir en bas de page.
+const others = computed(() => catalog.state.baskets.filter((basket) => basket.slug !== route.params.slug).slice(0, 3));
 const cart = useCart();
 const toast = useToast();
 const qty = ref(1);
@@ -42,7 +45,7 @@ function handleAdd(goToCart) {
         <div class="panier-detail-body">
           <p class="eyebrow">{{ panier.itemCount }} articles</p>
           <h1>{{ panier.name }}</h1>
-          <p class="panier-detail-price">{{ panier.price }} €</p>
+          <p class="panier-detail-price">{{ Number(panier.price).toLocaleString("fr-FR", { maximumFractionDigits: 2 }) }} €</p>
           <p class="panier-detail-summary">{{ panier.summary }}</p>
 
           <div class="order-box">
@@ -68,17 +71,24 @@ function handleAdd(goToCart) {
             </ul>
           </div>
 
-          <div class="panier-detail-section">
+          <div v-if="panier.details" class="panier-detail-section">
             <h2>Description</h2>
             <p>{{ panier.details }}</p>
           </div>
 
-          <div class="panier-detail-section">
+          <div v-if="panier.origin" class="panier-detail-section">
             <h2>Origine</h2>
             <p>{{ panier.origin }}</p>
           </div>
         </div>
       </div>
+
+      <section v-if="others.length" class="others" aria-labelledby="others-title">
+        <h2 id="others-title">Découvrez aussi</h2>
+        <div class="others-grid">
+          <PanierCard v-for="other in others" :key="other.slug" :panier="other" />
+        </div>
+      </section>
     </div>
   </div>
 
@@ -104,6 +114,23 @@ function handleAdd(goToCart) {
 </template>
 
 <style scoped>
+.others {
+  margin-top: 72px;
+  padding-top: 40px;
+  border-top: 1px solid var(--line);
+}
+
+.others h2 {
+  font-size: 24px;
+  margin: 0 0 24px;
+}
+
+.others-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 24px;
+}
+
 .panier-detail {
   padding: 48px 0 80px;
 }
