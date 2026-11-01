@@ -33,5 +33,6 @@ import { site } from "../data/site.js";
 .brand-text strong {
   font-family: "Fraunces", Georgia, serif;
   font-size: 18px;
+  white-space: nowrap;
 }
 </style>
