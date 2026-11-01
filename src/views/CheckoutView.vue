@@ -256,7 +256,9 @@ async function submitOrder() {
           <RouterLink to="/" class="btn ghost">Retour à l'accueil</RouterLink>
         </div>
         <p v-if="!auth.state.customer" class="account-hint">
-          <RouterLink to="/compte/inscription">Créez un compte</RouterLink> pour retrouver vos commandes et suivre leur statut.
+          <RouterLink to="/compte/inscription">Créez un compte</RouterLink> pour suivre cette commande : une fois connecté·e, utilisez
+          « Retrouver une commande » avec le numéro <strong>{{ lastOrder?.orderId }}</strong> et votre téléphone.
+          Si vous avez donné un email, confirmez-le simplement et vos commandes seront ajoutées automatiquement.
         </p>
       </div>
 

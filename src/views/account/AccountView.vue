@@ -20,6 +20,47 @@ const profile = reactive({
   address: auth.state.customer?.address || ""
 });
 const profileError = ref("");
+
+// Email non confirmé : les commandes passées sans compte ne sont pas encore rattachées.
+const verificationSending = ref(false);
+
+async function resendVerification() {
+  verificationSending.value = true;
+  const res = await auth.resendVerification();
+  verificationSending.value = false;
+  if (!res.ok) return toast.error(res.error);
+  if (res.data.alreadyVerified) {
+    await auth.fetchMe();
+    return toast.success("Votre email est déjà confirmé.");
+  }
+  toast.success(
+    res.data.emailSent
+      ? "Un nouveau lien vient de vous être envoyé. Pensez à vérifier vos courriers indésirables."
+      : "L'envoi d'emails n'est pas disponible pour le moment. Utilisez « Retrouver une commande » ci-dessous."
+  );
+}
+
+// Retrouver une commande passée sans compte (ou sans email) avec son numéro et son téléphone.
+const claim = reactive({ orderNumber: "", phone: "" });
+const claimError = ref("");
+const claiming = ref(false);
+
+async function claimOrder() {
+  claimError.value = "";
+  claiming.value = true;
+  const res = await auth.claimOrder(claim);
+  claiming.value = false;
+  if (!res.ok) {
+    claimError.value = res.error;
+    return;
+  }
+  toast.success(
+    res.data.alreadyYours ? "Cette commande est déjà dans votre compte." : `Commande ${res.data.orderNumber} ajoutée à votre compte.`
+  );
+  claim.orderNumber = "";
+  claim.phone = "";
+  await loadOrders();
+}
 const profileSaving = ref(false);
 
 async function saveProfile() {
@@ -104,6 +145,16 @@ function formatDate(iso) {
         <button type="button" class="btn ghost" @click="logout">Se déconnecter</button>
       </div>
 
+      <div v-if="auth.state.customer && !auth.state.customer.emailVerified" class="verify-banner" role="status">
+        <p>
+          <strong>Confirmez votre email.</strong> Cliquez sur le lien que nous vous avons envoyé : vos commandes passées sans
+          compte avec l'adresse <em>{{ auth.state.customer.email }}</em> seront alors ajoutées ici automatiquement.
+        </p>
+        <button type="button" class="btn ghost" :disabled="verificationSending" @click="resendVerification">
+          {{ verificationSending ? "Envoi…" : "Renvoyer le lien" }}
+        </button>
+      </div>
+
       <section class="settings" aria-label="Mes informations">
         <form class="settings-card" @submit.prevent="saveProfile">
           <h2>Mes informations</h2>
@@ -143,6 +194,26 @@ function formatDate(iso) {
           </button>
         </form>
       </section>
+
+      <form class="claim-card" @submit.prevent="claimOrder">
+        <h2>Retrouver une commande</h2>
+        <p class="muted">
+          Vous avez commandé sans compte, ou sans email ? Saisissez le numéro de commande reçu à la confirmation et le téléphone
+          utilisé à ce moment-là.
+        </p>
+        <div class="claim-fields">
+          <label>
+            Numéro de commande
+            <input v-model.trim="claim.orderNumber" type="text" placeholder="ex: A1B2C3D4" autocomplete="off" required />
+          </label>
+          <label>
+            Téléphone de la commande
+            <input v-model.trim="claim.phone" type="tel" autocomplete="tel" required />
+          </label>
+        </div>
+        <p v-if="claimError" class="form-error" role="alert">{{ claimError }}</p>
+        <button type="submit" class="btn ghost" :disabled="claiming">{{ claiming ? "Recherche…" : "Ajouter à mon compte" }}</button>
+      </form>
 
       <h2>Mes commandes</h2>
 
@@ -240,6 +311,69 @@ h2 {
   border-radius: 999px;
   background: var(--cream-deep);
   color: var(--text);
+}
+
+.verify-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #e6c98f;
+  background: #fff7e6;
+  color: #6b4a0e;
+  font-size: 14px;
+}
+
+.verify-banner p {
+  margin: 0;
+  max-width: 640px;
+}
+
+.claim-card {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 40px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px;
+}
+
+.claim-card h2 {
+  margin: 0;
+}
+
+.claim-card .muted {
+  margin: 0;
+  font-size: 13px;
+}
+
+.claim-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.claim-card label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.claim-card input {
+  font: inherit;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+}
+
+.claim-card .btn {
+  justify-self: start;
 }
 
 .settings {

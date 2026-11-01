@@ -2,11 +2,13 @@
 import { reactive, ref } from "vue";
 import { useRouter, RouterLink } from "vue-router";
 import { useAuth } from "../../stores/auth.js";
+import { useToast } from "../../stores/toast.js";
 import PasswordField from "../../components/PasswordField.vue";
 import BackLink from "../../components/BackLink.vue";
 
 const router = useRouter();
 const auth = useAuth();
+const toast = useToast();
 const form = reactive({ name: "", email: "", phone: "", password: "" });
 const error = ref("");
 const loading = ref(false);
@@ -15,7 +17,12 @@ async function submit() {
   error.value = "";
   loading.value = true;
   try {
-    await auth.signup(form);
+    const { verificationEmailSent } = await auth.signup(form);
+    toast.success(
+      verificationEmailSent
+        ? "Compte créé. Cliquez sur le lien reçu par email pour confirmer votre adresse et retrouver vos commandes passées."
+        : "Compte créé."
+    );
     router.push("/compte");
   } catch (err) {
     error.value = err.message;

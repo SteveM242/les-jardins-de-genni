@@ -13,6 +13,7 @@ import LoginView from "../views/account/LoginView.vue";
 import SignupView from "../views/account/SignupView.vue";
 import ForgotPasswordView from "../views/account/ForgotPasswordView.vue";
 import ResetPasswordView from "../views/account/ResetPasswordView.vue";
+import VerifyEmailView from "../views/account/VerifyEmailView.vue";
 import AccountView from "../views/account/AccountView.vue";
 import AdminLoginView from "../views/admin/AdminLoginView.vue";
 import AdminDashboardView from "../views/admin/AdminDashboardView.vue";
@@ -38,6 +39,7 @@ const router = createRouter({
     { path: "/compte/inscription", component: SignupView, meta: { guestOnly: "customer" } },
     { path: "/compte/mot-de-passe-oublie", component: ForgotPasswordView, meta: { guestOnly: "customer" } },
     { path: "/compte/reinitialiser", component: ResetPasswordView },
+    { path: "/compte/verification", component: VerifyEmailView },
     { path: "/compte", component: AccountView, meta: { requiresCustomer: true } },
     { path: "/admin/connexion", component: AdminLoginView, meta: { bare: true, guestOnly: "admin" } },
     { path: "/admin", component: AdminDashboardView, meta: { bare: true, requiresAdmin: true } },

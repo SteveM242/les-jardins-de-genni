@@ -52,5 +52,10 @@
     "title": "Nouveau mot de passe",
     "description": "Choisissez un nouveau mot de passe.",
     "noindex": true
+  },
+  "/compte/verification": {
+    "title": "Confirmation de l'email",
+    "description": "Confirmez votre adresse email.",
+    "noindex": true
   }
 }
