@@ -10,5 +10,7 @@ router.use("/orders", require("./orders.cjs"));
 router.use("/products", require("./products.cjs"));
 router.use("/baskets", require("./baskets.cjs"));
 router.use("/discounts", require("./discounts.cjs"));
+router.use("/settings", require("./settings.cjs"));
+router.use("/gallery", require("./gallery.cjs"));
 
 module.exports = router;

@@ -27,11 +27,12 @@ async function startApp() {
     const res = await fetch(base + path, {
       method,
       headers: {
-        ...(body ? { "content-type": "application/json" } : {}),
+        // FormData : fetch pose lui-même le Content-Type multipart avec sa frontière.
+        ...(body && !(body instanceof FormData) ? { "content-type": "application/json" } : {}),
         ...(cookie ? { cookie } : {}),
         ...headers
       },
-      body: body ? JSON.stringify(body) : undefined
+      body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined
     });
     const text = await res.text();
     let json = null;
