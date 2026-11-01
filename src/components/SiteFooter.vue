@@ -4,7 +4,7 @@ import { site, whatsappGeneralLink } from "../data/site.js";
 </script>
 
 <template>
-  <footer class="site-footer">
+  <footer class="site-footer madras-stripe">
     <div class="container site-footer-inner">
       <div class="footer-brand">
         <BrandLogo />
@@ -37,8 +37,9 @@ import { site, whatsappGeneralLink } from "../data/site.js";
 
 <style scoped>
 .site-footer {
+  position: relative;
   background: var(--green-dark);
-  color: #eef3ea;
+  color: #e6f2e8;
   padding: 48px 0 20px;
   margin-top: 60px;
 }
@@ -57,7 +58,7 @@ import { site, whatsappGeneralLink } from "../data/site.js";
 .footer-brand p {
   margin: 10px 0 0;
   max-width: 320px;
-  color: #cfe0d0;
+  color: #d3e8d6;
 }
 
 .footer-nav,
@@ -70,13 +71,13 @@ import { site, whatsappGeneralLink } from "../data/site.js";
 .footer-contact a,
 .footer-contact span {
   text-decoration: none;
-  color: #eef3ea;
+  color: #e6f2e8;
   font-weight: 600;
 }
 
 .footer-nav .eyebrow,
 .footer-contact .eyebrow {
-  color: #a9d6ad;
+  color: #ffd36b;
 }
 
 .footer-copyright {
@@ -84,12 +85,12 @@ import { site, whatsappGeneralLink } from "../data/site.js";
   margin: 40px 0 0;
   padding-top: 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
-  color: #a9b8ab;
+  color: #b4cdb9;
   font-size: 13px;
 }
 
 .pro-link {
-  color: #a9b8ab;
+  color: #b4cdb9;
   text-decoration: underline;
 }
 </style>

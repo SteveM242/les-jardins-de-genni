@@ -18,9 +18,9 @@ defineEmits(["retry"]);
   gap: 12px;
   padding: 14px 16px;
   border-radius: 10px;
-  border: 1px solid #e3b8b3;
-  background: #fbeeed;
-  color: #8f2f27;
+  border: 1px solid #f0b9bd;
+  background: #fdeced;
+  color: #8a1f27;
 }
 
 .load-error p {

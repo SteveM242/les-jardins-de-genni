@@ -633,9 +633,9 @@ h1 {
   margin-bottom: 20px;
   padding: 14px 16px;
   border-radius: 12px;
-  border: 1px solid #e6c98f;
-  background: #fff7e6;
-  color: #6b4a0e;
+  border: 1px solid #f0d06a;
+  background: #fff6d6;
+  color: #664400;
   font-size: 14px;
 }
 
@@ -763,7 +763,7 @@ h1 {
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #e6efe0;
+  background: #e4f2e7;
   color: var(--green-dark);
 }
 
@@ -961,14 +961,14 @@ h1 {
 }
 
 .field [aria-invalid="true"] {
-  border-color: #a3372e;
-  background: #fdf5f4;
+  border-color: #a3202a;
+  background: #fef4f4;
 }
 
 .field-error {
   margin: 0;
   font-size: 12px;
-  color: #a3372e;
+  color: #a3202a;
 }
 
 .fulfillment-field {
@@ -1002,7 +1002,7 @@ h1 {
 }
 
 .form-error {
-  color: #a3372e;
+  color: #a3202a;
   font-size: 13px;
   margin: 0;
 }
@@ -1060,9 +1060,9 @@ h1 {
   gap: 12px;
   padding: 14px 16px;
   border-radius: 10px;
-  border: 1px solid #e3b8b3;
-  background: #fbeeed;
-  color: #8f2f27;
+  border: 1px solid #f0b9bd;
+  background: #fdeced;
+  color: #8a1f27;
 }
 
 .review-error p {

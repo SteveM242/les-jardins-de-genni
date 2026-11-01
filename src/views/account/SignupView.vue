@@ -109,7 +109,7 @@ h1 {
 }
 
 .form-error {
-  color: #a3372e;
+  color: #a3202a;
   font-size: 13px;
   margin: 0;
 }

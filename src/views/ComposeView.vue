@@ -315,7 +315,7 @@ h1 {
 
 .product-row.selected {
   border-color: var(--green);
-  background: #f3f7ef;
+  background: #f1f8f2;
 }
 
 .product-info {

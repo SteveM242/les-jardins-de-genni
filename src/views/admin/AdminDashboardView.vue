@@ -269,7 +269,7 @@ h1 {
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #e6efe0;
+  background: #e4f2e7;
   color: var(--green-dark);
 }
 
@@ -378,32 +378,32 @@ h1 {
 
 .status-badge.status-nouvelle,
 .filter-chip.status-nouvelle:not(.active) {
-  background: #fcebd9;
-  color: #8a4f12;
+  background: #fdeec2;
+  color: #6e4a00;
 }
 
 .status-badge.status-confirmee,
 .filter-chip.status-confirmee:not(.active) {
-  background: #dfe8f5;
-  color: #2d5591;
+  background: #d6eef2;
+  color: #0b6072;
 }
 
 .status-badge.status-prete,
 .filter-chip.status-prete:not(.active) {
-  background: #e6dff5;
-  color: #5c3d91;
+  background: #def2d2;
+  color: #2a6410;
 }
 
 .status-badge.status-livree,
 .filter-chip.status-livree:not(.active) {
-  background: #dcebdc;
+  background: #c6e8d0;
   color: var(--green-dark);
 }
 
 .status-badge.status-annulee,
 .filter-chip.status-annulee:not(.active) {
-  background: #f2dede;
-  color: #a3372e;
+  background: #fbe0e2;
+  color: #a3202a;
 }
 
 .order-body {

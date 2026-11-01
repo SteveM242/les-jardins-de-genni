@@ -66,7 +66,7 @@ nav {
 }
 
 nav a {
-  color: #d9e4d2;
+  color: #cfe8d3;
   text-decoration: none;
   font-size: 14px;
   font-weight: 600;
@@ -80,7 +80,7 @@ nav a.router-link-exact-active {
 .link-logout {
   background: none;
   border: 0;
-  color: #d9e4d2;
+  color: #cfe8d3;
   font: inherit;
   font-size: 12px;
   text-decoration: underline;

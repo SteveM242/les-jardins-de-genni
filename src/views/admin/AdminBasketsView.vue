@@ -208,7 +208,7 @@ h1 {
 }
 
 .form-error {
-  color: #a3372e;
+  color: #a3202a;
   font-size: 13px;
   margin: 14px 0 0;
 }
@@ -299,7 +299,7 @@ h1 {
 }
 
 .item-tag button:hover {
-  color: #a3372e;
+  color: #a3202a;
 }
 
 .items-empty {
@@ -338,7 +338,7 @@ h1 {
 .link-btn {
   background: none;
   border: 0;
-  color: #a3372e;
+  color: #a3202a;
   text-decoration: underline;
   cursor: pointer;
   font-size: 12px;

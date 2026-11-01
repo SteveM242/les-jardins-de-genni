@@ -322,9 +322,9 @@ h2 {
   margin-bottom: 24px;
   padding: 14px 16px;
   border-radius: 12px;
-  border: 1px solid #e6c98f;
-  background: #fff7e6;
-  color: #6b4a0e;
+  border: 1px solid #f0d06a;
+  background: #fff6d6;
+  color: #664400;
   font-size: 14px;
 }
 
@@ -418,7 +418,7 @@ h2 {
 }
 
 .form-error {
-  color: #a3372e;
+  color: #a3202a;
   font-size: 13px;
   margin: 0;
 }
@@ -458,28 +458,28 @@ h2 {
 }
 
 .status-nouvelle {
-  background: #fcebd9;
-  color: #8a4f12;
+  background: #fdeec2;
+  color: #6e4a00;
 }
 
 .status-confirmee {
-  background: #dfe8f5;
-  color: #2d5591;
+  background: #d6eef2;
+  color: #0b6072;
 }
 
 .status-prete {
-  background: #e6dff5;
-  color: #5c3d91;
+  background: #def2d2;
+  color: #2a6410;
 }
 
 .status-livree {
-  background: #dcebdc;
+  background: #c6e8d0;
   color: var(--green-dark);
 }
 
 .status-annulee {
-  background: #f2dede;
-  color: #a3372e;
+  background: #fbe0e2;
+  color: #a3202a;
 }
 
 .order-items {

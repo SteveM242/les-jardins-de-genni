@@ -127,7 +127,7 @@ h1 {
 }
 
 .form-error {
-  color: #a3372e;
+  color: #a3202a;
   font-size: 13px;
   margin: 8px 0 20px;
 }
@@ -168,7 +168,7 @@ h1 {
 .link-btn {
   background: none;
   border: 0;
-  color: #a3372e;
+  color: #a3202a;
   text-decoration: underline;
   cursor: pointer;
   font-size: 13px;

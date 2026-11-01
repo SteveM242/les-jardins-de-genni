@@ -102,7 +102,7 @@ async function handleFile(event) {
 }
 
 .upload-error {
-  color: #a3372e;
+  color: #a3202a;
   font-size: 11px;
   margin: 0;
   max-width: 140px;

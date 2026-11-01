@@ -86,7 +86,7 @@ h1 {
   font-size: 13px;
   font-weight: 600;
   color: var(--green-dark);
-  background: #e4ecdf;
+  background: #e4f2e7;
   border: 1.5px solid var(--green);
   border-radius: 10px;
   padding: 12px 14px;
@@ -130,7 +130,7 @@ h1 {
 }
 
 .form-error {
-  color: #a3372e;
+  color: #a3202a;
   font-size: 13px;
   margin: 0;
 }

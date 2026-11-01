@@ -21,7 +21,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <header class="site-header">
+  <header class="site-header madras-stripe">
     <div class="container site-header-inner">
       <BrandLogo />
 
@@ -80,7 +80,7 @@ onMounted(() => {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: rgba(250, 246, 238, 0.94);
+  background: rgba(251, 246, 232, 0.94);
   backdrop-filter: blur(6px);
   border-bottom: 1px solid var(--line);
 }
@@ -121,7 +121,7 @@ nav a {
 
 nav a:hover {
   color: var(--green);
-  background: rgba(60, 90, 62, 0.08);
+  background: rgba(31, 122, 63, 0.08);
 }
 
 /* Page courante : soulignement discret. */
@@ -192,7 +192,7 @@ nav a.nav-compose.router-link-exact-active {
 }
 
 .account-link:hover {
-  background: rgba(60, 90, 62, 0.08);
+  background: rgba(31, 122, 63, 0.08);
   color: var(--green);
 }
 

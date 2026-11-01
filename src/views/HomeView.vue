@@ -72,7 +72,7 @@ onMounted(catalog.load);
   position: relative;
   padding: 100px 0 80px;
   border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(43, 36, 32, 0.6) 0%, rgba(43, 36, 32, 0.78) 100%),
+  background: linear-gradient(180deg, rgba(8, 40, 22, 0.55) 0%, rgba(6, 30, 18, 0.8) 100%),
     url("/images/hero-jardin.webp") center/cover no-repeat;
   color: #fff;
 }
@@ -82,7 +82,7 @@ onMounted(catalog.load);
 }
 
 .hero .eyebrow {
-  color: #f0d9bf;
+  color: #ffd36b;
 }
 
 .hero h1 {
@@ -92,7 +92,7 @@ onMounted(catalog.load);
 }
 
 .hero-intro {
-  color: #ece4d6;
+  color: #f4f0e2;
   font-size: 16px;
   margin: 0 0 28px;
 }

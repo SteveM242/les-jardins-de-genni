@@ -1,15 +1,32 @@
 @import url("https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap");
 
+/*
+  Palette inspirée de la Martinique : vert des mornes et des bananeraies (couleur principale),
+  jaune soleil, rouge hibiscus, bleu de la mer des Caraïbes, orange mangue.
+  Tous les couples texte/fond utilisés respectent un contraste WCAG AA (>= 4,5:1).
+*/
 :root {
-  --green: #3c5a3e;
-  --green-dark: #2a4029;
-  --clay: #bf6a3b;
-  --clay-dark: #a3572e;
-  --cream: #f6f1e6;
-  --cream-deep: #ece3cd;
-  --text: #2e2a22;
-  --muted: #6a6050;
-  --line: #ddd2b8;
+  /* Verts */
+  --green: #1f7a3f;
+  --green-dark: #13502b;
+  --green-tint: #e4f2e7;
+  --green-soft: #f1f8f2;
+  --leaf: #6dbb4a;
+
+  /* Accents tropicaux */
+  --sun: #f2a900;
+  --clay: #e8801a; /* mangue : filets, soulignements (décoratif) */
+  --clay-dark: #b3401d; /* mangue brûlée : texte d'accent lisible sur fond clair */
+  --hibiscus: #c8323c;
+  --sea: #138a9e;
+  --sea-dark: #0e6e80;
+
+  /* Neutres chauds, légèrement solaires */
+  --cream: #fbf6e8;
+  --cream-deep: #f2e9c9;
+  --text: #1d2a1c;
+  --muted: #55604c;
+  --line: #e2d6b0;
   font-family: "Inter", system-ui, sans-serif;
 }
 
@@ -152,4 +169,23 @@ main:focus {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ---------- Bande madras ---------- */
+
+/* Liseré décoratif aux couleurs du madras martiniquais (soleil, hibiscus, mornes, mer). */
+.madras-stripe::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 4px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--sun) 0 28px,
+    var(--hibiscus) 28px 56px,
+    var(--green) 56px 84px,
+    var(--sea) 84px 112px
+  );
 }
