@@ -47,7 +47,7 @@ test("renderHtml remplace titre et description et injecte Open Graph avec URL ab
   const html = renderHtml(template, metaFor("/produits"), context);
   assert.ok(!html.includes("Défaut"));
   assert.ok(!html.includes("<!--app-meta-->"));
-  assert.match(html, /<title>Composez votre panier à la carte — Les Jardins de Genni<\/title>/);
+  assert.match(html, /<title>Les articles à la carte — Les Jardins de Genni<\/title>/);
   assert.match(html, /property="og:image" content="https:\/\/exemple\.fr\/images\/hero-jardin\.webp"/);
   assert.match(html, /rel="canonical" href="https:\/\/exemple\.fr\/produits"/);
 });

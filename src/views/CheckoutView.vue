@@ -5,6 +5,7 @@ import { api } from "../api.js";
 import { useCart } from "../stores/cart.js";
 import { useAuth } from "../stores/auth.js";
 import { whatsappCartLink, whatsappOrderConfirmLink } from "../data/site.js";
+import CartLineContents from "../components/CartLineContents.vue";
 
 const cart = useCart();
 const auth = useAuth();
@@ -12,6 +13,7 @@ const route = useRoute();
 const router = useRouter();
 
 const MAX_QTY = 50;
+const STEP_QUERY = { 2: "coordonnees", 3: "relecture" };
 
 const form = reactive({
   name: "",
@@ -34,10 +36,33 @@ const discount = ref(null); // { code, amount }
 const discountError = ref("");
 const discountChecking = ref(false);
 
-// L'étape vit dans l'URL (?etape=coordonnees) : le bouton retour du navigateur fonctionne.
-const step = computed(() => (route.query.etape === "coordonnees" && cart.items.value.length > 0 ? 2 : 1));
+// Relecture : le serveur revérifie prix et disponibilité avant que le client ne confirme.
+const review = reactive({ loading: false, error: "", checked: false, confirmed: false });
+const notices = ref([]); // messages sur ce qui a changé depuis l'ajout au panier
 
-const total = computed(() => Math.max(0, cart.subtotal.value - (discount.value?.amount || 0)));
+function fieldErrors() {
+  return {
+    name: form.name.trim() ? "" : "Merci d'indiquer votre nom.",
+    phone: /^[+\d][\d\s().-]{7,}$/.test(form.phone.trim())
+      ? ""
+      : "Merci d'indiquer un numéro de téléphone valide (8 chiffres minimum).",
+    email: !form.email.trim() || /^\S+@\S+\.\S+$/.test(form.email.trim()) ? "" : "Cette adresse email semble incorrecte.",
+    address: form.fulfillment === "livraison" && !form.address.trim() ? "Merci d'indiquer l'adresse de livraison." : ""
+  };
+}
+
+const formComplete = computed(() => !Object.values(fieldErrors()).some(Boolean));
+
+// L'étape vit dans l'URL (?etape=…) : le bouton retour du navigateur fonctionne.
+// On ne peut pas arriver sur la relecture sans coordonnées valides.
+const step = computed(() => {
+  if (cart.items.value.length === 0) return 1;
+  if (route.query.etape === "relecture") return formComplete.value ? 3 : 2;
+  if (route.query.etape === "coordonnees") return 2;
+  return 1;
+});
+
+const total = computed(() => Math.max(0, Math.round((cart.subtotal.value - (discount.value?.amount || 0)) * 100) / 100));
 
 onMounted(async () => {
   if (!auth.state.loaded) await auth.fetchMe();
@@ -50,15 +75,15 @@ onMounted(async () => {
 });
 
 function formatPrice(value) {
-  return Number(value.toFixed(2)).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return Number(Number(value).toFixed(2)).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
 function goToStep(next) {
-  router.push({ path: "/commande", query: next === 2 ? { etape: "coordonnees" } : {} });
+  router.push({ path: "/commande", query: STEP_QUERY[next] ? { etape: STEP_QUERY[next] } : {} });
 }
 
 function changeQty(item, delta) {
-  cart.setQty(item.type, item.slug, Math.min(item.qty + delta, MAX_QTY));
+  cart.setQty(item.key, Math.min(item.qty + delta, MAX_QTY));
 }
 
 function setQtyFromInput(item, event) {
@@ -67,7 +92,7 @@ function setQtyFromInput(item, event) {
     event.target.value = item.qty;
     return;
   }
-  cart.setQty(item.type, item.slug, Math.min(value, MAX_QTY));
+  cart.setQty(item.key, Math.min(value, MAX_QTY));
 }
 
 async function applyDiscount({ silent = false } = {}) {
@@ -100,14 +125,44 @@ watch(
   }
 );
 
+// Applique le résultat d'une relecture serveur au panier local et prépare les messages.
+function absorbServerCheck({ lines = [], unavailable = [], priceChanges = [] }) {
+  notices.value = [
+    ...unavailable.map((u) => ({ kind: "removed", text: `« ${u.name} » a été retiré de votre panier : ${u.reason}` })),
+    ...priceChanges.map((c) => ({
+      kind: "price",
+      text: `Le prix de « ${c.name} » est passé de ${formatPrice(c.previousPrice)} € à ${formatPrice(c.price)} €.`
+    }))
+  ];
+  cart.applyServerCheck({ lines, unavailable });
+}
+
+async function runReview() {
+  review.loading = true;
+  review.error = "";
+  review.checked = false;
+  review.confirmed = false;
+  const res = await api("/api/cart/check", { method: "POST", body: { items: cart.toPayload() } });
+  review.loading = false;
+  if (!res.ok) {
+    review.error = res.error;
+    return;
+  }
+  absorbServerCheck(res.data);
+  if (discount.value) await applyDiscount({ silent: true });
+  review.checked = true;
+}
+
+watch(
+  step,
+  (current) => {
+    if (current === 3) runReview();
+  },
+  { immediate: true }
+);
+
 function validate() {
-  errors.name = form.name.trim() ? "" : "Merci d'indiquer votre nom.";
-  errors.phone = /^[+\d][\d\s().-]{7,}$/.test(form.phone.trim())
-    ? ""
-    : "Merci d'indiquer un numéro de téléphone valide (8 chiffres minimum).";
-  errors.email = !form.email.trim() || /^\S+@\S+\.\S+$/.test(form.email.trim()) ? "" : "Cette adresse email semble incorrecte.";
-  errors.address =
-    form.fulfillment === "livraison" && !form.address.trim() ? "Merci d'indiquer l'adresse de livraison." : "";
+  Object.assign(errors, fieldErrors());
   return !Object.values(errors).some(Boolean);
 }
 
@@ -116,14 +171,20 @@ async function focusFirstError() {
   document.querySelector(".order-form [aria-invalid='true']")?.focus();
 }
 
-async function submitOrder() {
-  if (cart.items.value.length === 0 || status.value === "sending") return;
+function goToReview() {
+  status.value = "idle";
   if (!validate()) {
     status.value = "error";
     errorMessage.value = "Quelques informations sont à corriger ci-dessous.";
     focusFirstError();
     return;
   }
+  goToStep(3);
+}
+
+async function submitOrder() {
+  if (cart.items.value.length === 0 || status.value === "sending") return;
+  if (!review.checked || !review.confirmed) return;
 
   status.value = "sending";
   errorMessage.value = "";
@@ -139,7 +200,7 @@ async function submitOrder() {
         address: form.fulfillment === "livraison" ? form.address : "",
         notes: form.notes
       },
-      items: cart.items.value.map((item) => ({ type: item.type, slug: item.slug, qty: item.qty })),
+      items: cart.toPayload(),
       discountCode: discount.value?.code || "",
       website: form.website
     }
@@ -147,6 +208,14 @@ async function submitOrder() {
 
   if (!res.ok) {
     status.value = "error";
+    // Le panier a changé entre la relecture et l'envoi : on remet le client devant ce qui a bougé.
+    if (res.status === 409 && (res.data?.unavailable || res.data?.priceChanges)) {
+      absorbServerCheck({ unavailable: res.data.unavailable || [], priceChanges: res.data.priceChanges || [] });
+      review.confirmed = false;
+      errorMessage.value = res.error;
+      await runReview();
+      return;
+    }
     errorMessage.value = res.error || "Une erreur est survenue. Réessayez ou passez par WhatsApp.";
     return;
   }
@@ -155,6 +224,7 @@ async function submitOrder() {
   cart.clear();
   discount.value = null;
   discountInput.value = "";
+  notices.value = [];
   status.value = "success";
   window.scrollTo({ top: 0 });
 }
@@ -190,212 +260,315 @@ async function submitOrder() {
         </p>
       </div>
 
-      <div v-else-if="cart.items.value.length === 0" class="empty-box">
-        <p>Votre panier est vide pour le moment.</p>
-        <div class="success-actions">
-          <RouterLink to="/#paniers" class="btn primary">Voir les paniers</RouterLink>
-          <RouterLink to="/produits" class="btn ghost">Composer à la carte</RouterLink>
-        </div>
-      </div>
-
       <template v-else>
-        <ol class="stepper" aria-label="Étapes de la commande">
-          <li :class="{ current: step === 1, done: step === 2 }" :aria-current="step === 1 ? 'step' : undefined">
-            <span class="step-number">1</span> Mon panier
-          </li>
-          <li :class="{ current: step === 2 }" :aria-current="step === 2 ? 'step' : undefined">
-            <span class="step-number">2</span> Mes coordonnées
-          </li>
-        </ol>
+        <div v-if="notices.length > 0" class="notices" role="alert">
+          <strong>Votre panier a été mis à jour :</strong>
+          <ul>
+            <li v-for="(notice, index) in notices" :key="index">{{ notice.text }}</li>
+          </ul>
+        </div>
 
-        <!-- Étape 1 : panier, code promo, total -->
-        <div v-if="step === 1" class="cart-step">
-          <div class="cart-list">
-            <h2>Mes articles</h2>
-            <div v-for="item in cart.items.value" :key="`${item.type}:${item.slug}`" class="cart-row">
-              <div>
-                <strong>{{ item.name }}</strong>
-                <span class="cart-row-price">{{ item.price }} € / {{ item.unit || "unité" }}</span>
-              </div>
-              <div class="cart-row-controls">
-                <div class="qty-stepper">
-                  <button type="button" :aria-label="`Retirer un ${item.name}`" @click="changeQty(item, -1)">−</button>
-                  <input
-                    type="number"
-                    min="1"
-                    :max="MAX_QTY"
-                    :value="item.qty"
-                    :aria-label="`Quantité de ${item.name}`"
-                    @change="setQtyFromInput(item, $event)"
-                  />
-                  <button type="button" :aria-label="`Ajouter un ${item.name}`" @click="changeQty(item, 1)">+</button>
-                </div>
-                <span class="cart-row-total">{{ formatPrice(item.price * item.qty) }} €</span>
-                <button type="button" class="link-btn" :aria-label="`Retirer ${item.name} du panier`" @click="cart.removeItem(item.type, item.slug)">
-                  Retirer
-                </button>
-              </div>
-            </div>
-
-            <div class="discount-box">
-              <label for="discount-code">Code promo</label>
-              <div class="discount-input-row">
-                <input
-                  id="discount-code"
-                  v-model.trim="discountInput"
-                  type="text"
-                  placeholder="ex: BIENVENUE10"
-                  autocomplete="off"
-                  @keydown.enter.prevent="applyDiscount()"
-                />
-                <button type="button" class="btn ghost" :disabled="discountChecking" @click="applyDiscount()">
-                  {{ discountChecking ? "…" : "Appliquer" }}
-                </button>
-              </div>
-              <p v-if="discountError" class="form-error" role="alert">{{ discountError }}</p>
-              <p v-if="discount" class="discount-applied" role="status">
-                Code {{ discount.code }} appliqué : -{{ formatPrice(discount.amount) }} €
-              </p>
-            </div>
-
-            <div class="cart-total">
-              <span>Sous-total</span>
-              <span>{{ formatPrice(cart.subtotal.value) }} €</span>
-            </div>
-            <div v-if="discount" class="cart-total discount-line">
-              <span>Réduction</span>
-              <span>-{{ formatPrice(discount.amount) }} €</span>
-            </div>
-            <div class="cart-total cart-total-final">
-              <span>Total</span>
-              <strong>{{ formatPrice(total) }} €</strong>
-            </div>
-
-            <button type="button" class="btn primary continue-btn" @click="goToStep(2)">Continuer →</button>
-
-            <a :href="whatsappCartLink(cart.items.value)" target="_blank" rel="noreferrer" class="whatsapp-alt">
-              Préférer commander ce panier sur WhatsApp
-            </a>
+        <div v-if="cart.items.value.length === 0" class="empty-box">
+          <p>Votre panier est vide pour le moment.</p>
+          <div class="success-actions">
+            <RouterLink to="/#paniers" class="btn primary">Voir les paniers</RouterLink>
+            <RouterLink to="/composer" class="btn ghost">Composer mon panier</RouterLink>
+            <RouterLink to="/produits" class="btn ghost">Choisir à la carte</RouterLink>
           </div>
         </div>
 
-        <!-- Étape 2 : coordonnées + récapitulatif -->
-        <div v-else class="checkout-grid">
-          <form class="order-form" novalidate @submit.prevent="submitOrder">
-            <h2>Vos coordonnées</h2>
-            <p v-if="!auth.state.customer" class="guest-note">
-              Pas besoin de compte pour commander — remplissez simplement vos coordonnées ci-dessous.
-            </p>
+        <template v-else>
+          <ol class="stepper" aria-label="Étapes de la commande">
+            <li :class="{ current: step === 1, done: step > 1 }" :aria-current="step === 1 ? 'step' : undefined">
+              <span class="step-number">1</span> Mon panier
+            </li>
+            <li :class="{ current: step === 2, done: step > 2 }" :aria-current="step === 2 ? 'step' : undefined">
+              <span class="step-number">2</span> Mes coordonnées
+            </li>
+            <li :class="{ current: step === 3 }" :aria-current="step === 3 ? 'step' : undefined">
+              <span class="step-number">3</span> Relecture
+            </li>
+          </ol>
 
-            <div class="field">
-              <label for="f-name">Nom et prénom *</label>
+          <!-- Étape 1 : panier, code promo, total -->
+          <div v-if="step === 1" class="cart-step">
+            <div class="cart-list">
+              <h2>Mes articles</h2>
+              <div v-for="item in cart.items.value" :key="item.key" class="cart-row">
+                <div class="cart-row-main">
+                  <strong>{{ item.name }}</strong>
+                  <span v-if="item.type === 'custom'" class="line-tag">Panier sur mesure</span>
+                  <span class="cart-row-price">{{ formatPrice(item.price) }} € / {{ item.type === "custom" || item.type === "basket" ? "panier" : item.unit || "unité" }}</span>
+                  <CartLineContents :line="item" />
+                  <RouterLink v-if="item.type === 'custom'" :to="{ path: '/composer', query: { panier: item.key } }" class="edit-link">
+                    Modifier ce panier
+                  </RouterLink>
+                </div>
+                <div class="cart-row-controls">
+                  <div class="qty-stepper">
+                    <button type="button" :aria-label="`Retirer un ${item.name}`" @click="changeQty(item, -1)">−</button>
+                    <input
+                      type="number"
+                      min="1"
+                      :max="MAX_QTY"
+                      :value="item.qty"
+                      :aria-label="`Quantité de ${item.name}`"
+                      @change="setQtyFromInput(item, $event)"
+                    />
+                    <button type="button" :aria-label="`Ajouter un ${item.name}`" @click="changeQty(item, 1)">+</button>
+                  </div>
+                  <span class="cart-row-total">{{ formatPrice(item.price * item.qty) }} €</span>
+                  <button type="button" class="link-btn" :aria-label="`Retirer ${item.name} du panier`" @click="cart.removeItem(item.key)">
+                    Retirer
+                  </button>
+                </div>
+              </div>
+
+              <div class="add-more">
+                <RouterLink to="/composer" class="btn ghost">+ Composer un panier sur mesure</RouterLink>
+                <RouterLink to="/#paniers" class="btn ghost">+ Ajouter un panier</RouterLink>
+                <RouterLink to="/produits" class="btn ghost">+ Ajouter des articles</RouterLink>
+              </div>
+
+              <div class="discount-box">
+                <label for="discount-code">Code promo</label>
+                <div class="discount-input-row">
+                  <input
+                    id="discount-code"
+                    v-model.trim="discountInput"
+                    type="text"
+                    placeholder="ex: BIENVENUE10"
+                    autocomplete="off"
+                    @keydown.enter.prevent="applyDiscount()"
+                  />
+                  <button type="button" class="btn ghost" :disabled="discountChecking" @click="applyDiscount()">
+                    {{ discountChecking ? "…" : "Appliquer" }}
+                  </button>
+                </div>
+                <p v-if="discountError" class="form-error" role="alert">{{ discountError }}</p>
+                <p v-if="discount" class="discount-applied" role="status">
+                  Code {{ discount.code }} appliqué : -{{ formatPrice(discount.amount) }} €
+                </p>
+              </div>
+
+              <div class="cart-total">
+                <span>Sous-total</span>
+                <span>{{ formatPrice(cart.subtotal.value) }} €</span>
+              </div>
+              <div v-if="discount" class="cart-total discount-line">
+                <span>Réduction</span>
+                <span>-{{ formatPrice(discount.amount) }} €</span>
+              </div>
+              <div class="cart-total cart-total-final">
+                <span>Total</span>
+                <strong>{{ formatPrice(total) }} €</strong>
+              </div>
+
+              <button type="button" class="btn primary continue-btn" @click="goToStep(2)">Continuer →</button>
+
+              <a :href="whatsappCartLink(cart.items.value)" target="_blank" rel="noreferrer" class="whatsapp-alt">
+                Préférer commander ce panier sur WhatsApp
+              </a>
+            </div>
+          </div>
+
+          <!-- Étape 2 : coordonnées + récapitulatif -->
+          <div v-else-if="step === 2" class="checkout-grid">
+            <form class="order-form" novalidate @submit.prevent="goToReview">
+              <h2>Vos coordonnées</h2>
+              <p v-if="!auth.state.customer" class="guest-note">
+                Pas besoin de compte pour commander — remplissez simplement vos coordonnées ci-dessous.
+              </p>
+
+              <div class="field">
+                <label for="f-name">Nom et prénom *</label>
+                <input
+                  id="f-name"
+                  v-model.trim="form.name"
+                  type="text"
+                  autocomplete="name"
+                  required
+                  :aria-invalid="errors.name ? 'true' : undefined"
+                  :aria-describedby="errors.name ? 'f-name-error' : undefined"
+                />
+                <p v-if="errors.name" id="f-name-error" class="field-error">{{ errors.name }}</p>
+              </div>
+
+              <div class="field">
+                <label for="f-phone">Téléphone *</label>
+                <input
+                  id="f-phone"
+                  v-model.trim="form.phone"
+                  type="tel"
+                  autocomplete="tel"
+                  required
+                  :aria-invalid="errors.phone ? 'true' : undefined"
+                  :aria-describedby="errors.phone ? 'f-phone-error' : undefined"
+                />
+                <p v-if="errors.phone" id="f-phone-error" class="field-error">{{ errors.phone }}</p>
+              </div>
+
+              <div class="field">
+                <label for="f-email">Email (optionnel, pour recevoir un message à chaque étape de votre commande)</label>
+                <input
+                  id="f-email"
+                  v-model.trim="form.email"
+                  type="email"
+                  autocomplete="email"
+                  :aria-invalid="errors.email ? 'true' : undefined"
+                  :aria-describedby="errors.email ? 'f-email-error' : undefined"
+                />
+                <p v-if="errors.email" id="f-email-error" class="field-error">{{ errors.email }}</p>
+              </div>
+
+              <fieldset class="fulfillment-field">
+                <legend>Mode</legend>
+                <label class="radio">
+                  <input type="radio" value="retrait" v-model="form.fulfillment" />
+                  Retrait
+                </label>
+                <label class="radio">
+                  <input type="radio" value="livraison" v-model="form.fulfillment" />
+                  Livraison
+                </label>
+              </fieldset>
+
+              <div v-if="form.fulfillment === 'livraison'" class="field">
+                <label for="f-address">Adresse de livraison *</label>
+                <textarea
+                  id="f-address"
+                  v-model.trim="form.address"
+                  rows="2"
+                  autocomplete="street-address"
+                  :aria-invalid="errors.address ? 'true' : undefined"
+                  :aria-describedby="errors.address ? 'f-address-error' : undefined"
+                ></textarea>
+                <p v-if="errors.address" id="f-address-error" class="field-error">{{ errors.address }}</p>
+              </div>
+
+              <div class="field">
+                <label for="f-notes">Remarques (allergies, créneau préféré, etc.)</label>
+                <textarea id="f-notes" v-model.trim="form.notes" rows="2"></textarea>
+              </div>
+
               <input
-                id="f-name"
-                v-model.trim="form.name"
+                v-model="form.website"
                 type="text"
-                autocomplete="name"
-                required
-                :aria-invalid="errors.name ? 'true' : undefined"
-                :aria-describedby="errors.name ? 'f-name-error' : undefined"
+                autocomplete="off"
+                tabindex="-1"
+                class="honeypot"
+                aria-hidden="true"
               />
-              <p v-if="errors.name" id="f-name-error" class="field-error">{{ errors.name }}</p>
+
+              <p v-if="status === 'error'" class="form-error" role="alert">{{ errorMessage }}</p>
+
+              <div class="form-actions">
+                <button type="button" class="btn ghost" @click="goToStep(1)">← Modifier mon panier</button>
+                <button type="submit" class="btn primary">Relire ma commande →</button>
+              </div>
+            </form>
+
+            <aside class="recap" aria-label="Récapitulatif de la commande">
+              <h2>Récapitulatif</h2>
+              <ul>
+                <li v-for="item in cart.items.value" :key="item.key">
+                  <span>{{ item.qty }} × {{ item.name }}</span>
+                  <span>{{ formatPrice(item.price * item.qty) }} €</span>
+                </li>
+              </ul>
+              <div v-if="discount" class="cart-total discount-line">
+                <span>Code {{ discount.code }}</span>
+                <span>-{{ formatPrice(discount.amount) }} €</span>
+              </div>
+              <div class="cart-total cart-total-final">
+                <span>Total</span>
+                <strong>{{ formatPrice(total) }} €</strong>
+              </div>
+            </aside>
+          </div>
+
+          <!-- Étape 3 : relecture et confirmation -->
+          <div v-else class="review">
+            <p v-if="review.loading" class="muted-note" role="status">Vérification de votre panier (prix et disponibilités)…</p>
+
+            <div v-else-if="review.error" class="review-error" role="alert">
+              <p>{{ review.error }}</p>
+              <button type="button" class="btn ghost" @click="runReview">Réessayer</button>
             </div>
 
-            <div class="field">
-              <label for="f-phone">Téléphone *</label>
-              <input
-                id="f-phone"
-                v-model.trim="form.phone"
-                type="tel"
-                autocomplete="tel"
-                required
-                :aria-invalid="errors.phone ? 'true' : undefined"
-                :aria-describedby="errors.phone ? 'f-phone-error' : undefined"
-              />
-              <p v-if="errors.phone" id="f-phone-error" class="field-error">{{ errors.phone }}</p>
-            </div>
+            <template v-else-if="review.checked">
+              <div class="review-card">
+                <div class="review-head">
+                  <h2>Vos articles</h2>
+                  <button type="button" class="link-btn" @click="goToStep(1)">Modifier</button>
+                </div>
+                <div v-for="item in cart.items.value" :key="item.key" class="review-line">
+                  <div>
+                    <strong>{{ item.qty }} × {{ item.name }}</strong>
+                    <span v-if="item.type === 'custom'" class="line-tag">Panier sur mesure</span>
+                    <CartLineContents :line="item" open />
+                  </div>
+                  <span>{{ formatPrice(item.price * item.qty) }} €</span>
+                </div>
+                <div v-if="discount" class="cart-total discount-line">
+                  <span>Code {{ discount.code }}</span>
+                  <span>-{{ formatPrice(discount.amount) }} €</span>
+                </div>
+                <div class="cart-total cart-total-final">
+                  <span>Total à régler</span>
+                  <strong>{{ formatPrice(total) }} €</strong>
+                </div>
+                <p class="muted-note">Le paiement se fait à la remise de votre commande.</p>
+              </div>
 
-            <div class="field">
-              <label for="f-email">Email (optionnel, pour recevoir un message à chaque étape de votre commande)</label>
-              <input
-                id="f-email"
-                v-model.trim="form.email"
-                type="email"
-                autocomplete="email"
-                :aria-invalid="errors.email ? 'true' : undefined"
-                :aria-describedby="errors.email ? 'f-email-error' : undefined"
-              />
-              <p v-if="errors.email" id="f-email-error" class="field-error">{{ errors.email }}</p>
-            </div>
+              <div class="review-card">
+                <div class="review-head">
+                  <h2>{{ form.fulfillment === "livraison" ? "Livraison" : "Retrait" }}</h2>
+                  <button type="button" class="link-btn" @click="goToStep(2)">Modifier</button>
+                </div>
+                <dl class="review-contact">
+                  <dt>Nom</dt>
+                  <dd>{{ form.name }}</dd>
+                  <dt>Téléphone</dt>
+                  <dd>{{ form.phone }}</dd>
+                  <template v-if="form.email">
+                    <dt>Email</dt>
+                    <dd>{{ form.email }}</dd>
+                  </template>
+                  <template v-if="form.fulfillment === 'livraison'">
+                    <dt>Adresse</dt>
+                    <dd>{{ form.address }}</dd>
+                  </template>
+                  <template v-if="form.notes">
+                    <dt>Remarques</dt>
+                    <dd>{{ form.notes }}</dd>
+                  </template>
+                </dl>
+              </div>
 
-            <fieldset class="fulfillment-field">
-              <legend>Mode</legend>
-              <label class="radio">
-                <input type="radio" value="retrait" v-model="form.fulfillment" />
-                Retrait
-              </label>
-              <label class="radio">
-                <input type="radio" value="livraison" v-model="form.fulfillment" />
-                Livraison
-              </label>
-            </fieldset>
-
-            <div v-if="form.fulfillment === 'livraison'" class="field">
-              <label for="f-address">Adresse de livraison *</label>
-              <textarea
-                id="f-address"
-                v-model.trim="form.address"
-                rows="2"
-                autocomplete="street-address"
-                :aria-invalid="errors.address ? 'true' : undefined"
-                :aria-describedby="errors.address ? 'f-address-error' : undefined"
-              ></textarea>
-              <p v-if="errors.address" id="f-address-error" class="field-error">{{ errors.address }}</p>
-            </div>
-
-            <div class="field">
-              <label for="f-notes">Remarques (allergies, créneau préféré, etc.)</label>
-              <textarea id="f-notes" v-model.trim="form.notes" rows="2"></textarea>
-            </div>
-
-            <input
-              v-model="form.website"
-              type="text"
-              autocomplete="off"
-              tabindex="-1"
-              class="honeypot"
-              aria-hidden="true"
-            />
-
-            <p v-if="status === 'error'" class="form-error" role="alert">{{ errorMessage }}</p>
-
-            <div class="form-actions">
-              <button type="button" class="btn ghost" @click="goToStep(1)">← Modifier mon panier</button>
-              <button type="submit" class="btn primary" :disabled="status === 'sending'">
-                {{ status === "sending" ? "Envoi en cours…" : "Envoyer ma commande" }}
-              </button>
-            </div>
-          </form>
-
-          <aside class="recap" aria-label="Récapitulatif de la commande">
-            <h2>Récapitulatif</h2>
-            <ul>
-              <li v-for="item in cart.items.value" :key="`${item.type}:${item.slug}`">
-                <span>{{ item.qty }} × {{ item.name }}</span>
-                <span>{{ formatPrice(item.price * item.qty) }} €</span>
-              </li>
-            </ul>
-            <div v-if="discount" class="cart-total discount-line">
-              <span>Code {{ discount.code }}</span>
-              <span>-{{ formatPrice(discount.amount) }} €</span>
-            </div>
-            <div class="cart-total cart-total-final">
-              <span>Total</span>
-              <strong>{{ formatPrice(total) }} €</strong>
-            </div>
-            <p class="recap-note">Le paiement se fait à la remise de votre commande.</p>
-          </aside>
-        </div>
+              <div class="confirm-box">
+                <label class="confirm-check">
+                  <input v-model="review.confirmed" type="checkbox" />
+                  <span>
+                    Je confirme ma commande : j'ai vérifié les articles, les quantités et le total ({{ formatPrice(total) }} €).
+                  </span>
+                </label>
+                <p v-if="status === 'error'" class="form-error" role="alert">{{ errorMessage }}</p>
+                <div class="form-actions">
+                  <button type="button" class="btn ghost" @click="goToStep(2)">← Retour</button>
+                  <button
+                    type="button"
+                    class="btn primary"
+                    :disabled="!review.confirmed || status === 'sending'"
+                    @click="submitOrder"
+                  >
+                    {{ status === "sending" ? "Envoi en cours…" : "Confirmer et envoyer ma commande" }}
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
       </template>
     </div>
   </div>
@@ -415,6 +588,7 @@ h1 {
 .stepper {
   list-style: none;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 0;
   margin: 0 0 24px;
@@ -451,6 +625,21 @@ h1 {
   background: rgba(255, 255, 255, 0.7);
   color: var(--text);
   font-size: 12px;
+}
+
+.notices {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #e6c98f;
+  background: #fff7e6;
+  color: #6b4a0e;
+  font-size: 14px;
+}
+
+.notices ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
 }
 
 .empty-box,
@@ -498,7 +687,9 @@ h1 {
 
 .cart-list,
 .order-form,
-.recap {
+.recap,
+.review-card,
+.confirm-box {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -507,7 +698,8 @@ h1 {
 
 .cart-list h2,
 .order-form h2,
-.recap h2 {
+.recap h2,
+.review-card h2 {
   font-size: 18px;
   margin: 0 0 18px;
 }
@@ -532,9 +724,9 @@ h1 {
   border-bottom: 1px solid var(--line);
 }
 
-.recap-note {
+.muted-note {
   margin: 14px 0 0;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 
@@ -550,11 +742,34 @@ h1 {
 .cart-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
+  align-items: flex-start;
+  padding: 14px 0;
   border-bottom: 1px solid var(--line);
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.cart-row-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.line-tag {
+  justify-self: start;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e6efe0;
+  color: var(--green-dark);
+}
+
+.edit-link {
+  justify-self: start;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--clay-dark);
 }
 
 .cart-row-price {
@@ -575,6 +790,18 @@ h1 {
   text-align: right;
   font-weight: 700;
   font-size: 14px;
+}
+
+.add-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 0 4px;
+}
+
+.add-more .btn {
+  padding: 8px 12px;
+  font-size: 13px;
 }
 
 .qty-stepper {
@@ -784,6 +1011,87 @@ h1 {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.review {
+  display: grid;
+  gap: 16px;
+  max-width: 760px;
+}
+
+.review-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.review-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.review-contact {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+  font-size: 14px;
+}
+
+.review-contact dt {
+  color: var(--muted);
+}
+
+.review-contact dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.review-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid #e3b8b3;
+  background: #fbeeed;
+  color: #8f2f27;
+}
+
+.review-error p {
+  margin: 0;
+}
+
+.confirm-box {
+  display: grid;
+  gap: 16px;
+  border-color: var(--green);
+}
+
+.confirm-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.confirm-check input {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.confirm-box .btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 @media (max-width: 760px) {

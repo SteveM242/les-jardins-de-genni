@@ -13,6 +13,7 @@ import { site, whatsappGeneralLink } from "../data/site.js";
 
       <div class="footer-nav">
         <p class="eyebrow">Le site</p>
+        <RouterLink to="/composer">Composer mon panier</RouterLink>
         <RouterLink to="/produits">À la carte</RouterLink>
         <RouterLink to="/comment-ca-marche">Comment ça marche</RouterLink>
         <RouterLink to="/a-propos">À propos</RouterLink>

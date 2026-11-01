@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, onMounted, watch } from "vue";
 import { setPageTitle } from "../pageMeta.js";
+import { useToast } from "../stores/toast.js";
 import { useRoute, RouterLink, useRouter } from "vue-router";
 import { useCatalog } from "../stores/catalog.js";
 import { whatsappOrderLink } from "../data/site.js";
@@ -14,12 +15,15 @@ onMounted(catalog.load);
 const panier = computed(() => catalog.findBasketBySlug(route.params.slug));
 watch(panier, (basket) => setPageTitle(basket ? basket.name : "Panier introuvable"), { immediate: true });
 const cart = useCart();
+const toast = useToast();
 const qty = ref(1);
 
-function handleAdd() {
+// goToCart=false : on reste sur la page pour continuer ses achats.
+function handleAdd(goToCart) {
   const quantity = Math.min(Math.max(Math.floor(Number(qty.value)) || 1, 1), 50);
   cart.addItem(panier.value, quantity);
-  router.push("/commande");
+  if (goToCart) router.push("/commande");
+  else toast.success(`${quantity} × ${panier.value.name} ajouté${quantity > 1 ? "s" : ""} au panier.`);
 }
 </script>
 
@@ -46,8 +50,11 @@ function handleAdd() {
               Quantité
               <input type="number" min="1" max="50" v-model.number="qty" />
             </label>
-            <button type="button" class="btn primary" @click="handleAdd">
-              Commander en ligne
+            <button type="button" class="btn primary" @click="handleAdd(true)">
+              Commander ce panier
+            </button>
+            <button type="button" class="btn ghost" @click="handleAdd(false)">
+              Ajouter et continuer mes achats
             </button>
             <a :href="whatsappOrderLink(panier.name)" target="_blank" rel="noreferrer" class="btn whatsapp">
               Commander sur WhatsApp

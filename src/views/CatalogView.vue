@@ -64,7 +64,8 @@ function handleAdd(product) {
       <h1>Composez votre propre panier</h1>
       <p class="intro">
         En plus des paniers tout faits, vous pouvez choisir vos articles un par un, selon vos
-        envies et vos quantités.
+        envies et vos quantités. Vous préférez assembler un vrai panier et le nommer ?
+        <RouterLink to="/composer">Composez-le ici</RouterLink>.
       </p>
 
       <p v-if="catalog.state.loading">Chargement du catalogue…</p>

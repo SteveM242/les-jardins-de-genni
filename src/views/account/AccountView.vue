@@ -5,6 +5,7 @@ import { api } from "../../api.js";
 import { useAuth } from "../../stores/auth.js";
 import BackLink from "../../components/BackLink.vue";
 import LoadError from "../../components/LoadError.vue";
+import CartLineContents from "../../components/CartLineContents.vue";
 
 const router = useRouter();
 const auth = useAuth();
@@ -87,11 +88,12 @@ function formatDate(iso) {
               {{ statusLabels[step] }}
             </li>
           </ol>
-          <p class="order-items">
-            <span v-for="(item, index) in order.items" :key="item.slug">
-              {{ item.qty }} x {{ item.name }}<span v-if="index < order.items.length - 1">, </span>
-            </span>
-          </p>
+          <div class="order-items">
+            <div v-for="(item, index) in order.items" :key="index">
+              {{ item.qty }} x {{ item.name }}
+              <CartLineContents :line="item" />
+            </div>
+          </div>
           <p class="order-meta">
             {{ order.fulfillment === "livraison" ? "Livraison" : "Retrait" }} · Total {{ order.total }} €
           </p>

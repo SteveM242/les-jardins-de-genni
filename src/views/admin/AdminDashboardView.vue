@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import AdminNav from "../../components/admin/AdminNav.vue";
 import LoadError from "../../components/LoadError.vue";
+import CartLineContents from "../../components/CartLineContents.vue";
 import { api } from "../../api.js";
 import { customerWhatsappLink } from "../../data/site.js";
 import { useToast } from "../../stores/toast.js";
@@ -169,7 +170,13 @@ onBeforeUnmount(() => {
 
           <div class="order-col">
             <p class="col-label">Articles</p>
-            <p v-for="item in order.items" :key="item.slug">{{ item.qty }} x {{ item.name }}</p>
+            <div v-for="(item, index) in order.items" :key="index" class="order-line">
+              <p>
+                <strong>{{ item.qty }} x {{ item.name }}</strong>
+                <span v-if="item.type === 'custom'" class="line-tag">Sur mesure</span>
+              </p>
+              <CartLineContents :line="item" open />
+            </div>
             <p v-if="order.discount_code" class="discount-note">
               Code {{ order.discount_code }} (-{{ order.discount_amount }} €)
             </p>
@@ -250,6 +257,20 @@ h1 {
   border-radius: 10px;
   border: 1.5px solid var(--line);
   background: #fff;
+}
+
+.order-line {
+  margin-bottom: 8px;
+}
+
+.line-tag {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e6efe0;
+  color: var(--green-dark);
 }
 
 .muted a {

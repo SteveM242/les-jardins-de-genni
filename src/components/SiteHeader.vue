@@ -27,6 +27,7 @@ onMounted(() => {
 
       <nav id="main-nav" :class="{ open: menuOpen }" aria-label="Navigation principale">
         <RouterLink to="/#paniers">Nos paniers</RouterLink>
+        <RouterLink to="/composer">Composer mon panier</RouterLink>
         <RouterLink to="/produits">À la carte</RouterLink>
         <RouterLink to="/comment-ca-marche">Comment ça marche</RouterLink>
         <RouterLink to="/a-propos">À propos</RouterLink>
