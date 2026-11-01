@@ -1,15 +1,58 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { api } from "../../api.js";
 import { useAuth } from "../../stores/auth.js";
+import { useToast } from "../../stores/toast.js";
+import PasswordField from "../../components/PasswordField.vue";
 import BackLink from "../../components/BackLink.vue";
 import LoadError from "../../components/LoadError.vue";
 import CartLineContents from "../../components/CartLineContents.vue";
 
 const router = useRouter();
 const auth = useAuth();
+const toast = useToast();
 const orders = ref([]);
+
+const profile = reactive({
+  name: auth.state.customer?.name || "",
+  phone: auth.state.customer?.phone || "",
+  address: auth.state.customer?.address || ""
+});
+const profileError = ref("");
+const profileSaving = ref(false);
+
+async function saveProfile() {
+  profileError.value = "";
+  profileSaving.value = true;
+  try {
+    await auth.updateProfile(profile);
+    toast.success("Vos informations ont été enregistrées.");
+  } catch (err) {
+    profileError.value = err.message;
+  } finally {
+    profileSaving.value = false;
+  }
+}
+
+const passwords = reactive({ current: "", next: "" });
+const passwordError = ref("");
+const passwordSaving = ref(false);
+
+async function savePassword() {
+  passwordError.value = "";
+  passwordSaving.value = true;
+  try {
+    await auth.changePassword({ currentPassword: passwords.current, newPassword: passwords.next });
+    passwords.current = "";
+    passwords.next = "";
+    toast.success("Mot de passe modifié. Vos autres appareils ont été déconnectés.");
+  } catch (err) {
+    passwordError.value = err.message;
+  } finally {
+    passwordSaving.value = false;
+  }
+}
 const loading = ref(true);
 const loadError = ref("");
 
@@ -60,6 +103,46 @@ function formatDate(iso) {
         </div>
         <button type="button" class="btn ghost" @click="logout">Se déconnecter</button>
       </div>
+
+      <section class="settings" aria-label="Mes informations">
+        <form class="settings-card" @submit.prevent="saveProfile">
+          <h2>Mes informations</h2>
+          <p class="muted">Elles pré-remplissent automatiquement vos prochaines commandes.</p>
+          <label>
+            Nom et prénom
+            <input v-model.trim="profile.name" type="text" autocomplete="name" required />
+          </label>
+          <label>
+            Téléphone
+            <input v-model.trim="profile.phone" type="tel" autocomplete="tel" />
+          </label>
+          <label>
+            Adresse de livraison
+            <textarea v-model.trim="profile.address" rows="2" autocomplete="street-address"></textarea>
+          </label>
+          <p class="muted">Email : {{ auth.state.customer?.email }}</p>
+          <p v-if="profileError" class="form-error" role="alert">{{ profileError }}</p>
+          <button type="submit" class="btn primary" :disabled="profileSaving">
+            {{ profileSaving ? "Enregistrement…" : "Enregistrer" }}
+          </button>
+        </form>
+
+        <form class="settings-card" @submit.prevent="savePassword">
+          <h2>Changer mon mot de passe</h2>
+          <label>
+            Mot de passe actuel
+            <PasswordField v-model="passwords.current" autocomplete="current-password" />
+          </label>
+          <label>
+            Nouveau mot de passe (8 caractères min.)
+            <PasswordField v-model="passwords.next" minlength="8" autocomplete="new-password" />
+          </label>
+          <p v-if="passwordError" class="form-error" role="alert">{{ passwordError }}</p>
+          <button type="submit" class="btn primary" :disabled="passwordSaving">
+            {{ passwordSaving ? "Enregistrement…" : "Changer le mot de passe" }}
+          </button>
+        </form>
+      </section>
 
       <h2>Mes commandes</h2>
 
@@ -157,6 +240,53 @@ h2 {
   border-radius: 999px;
   background: var(--cream-deep);
   color: var(--text);
+}
+
+.settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.settings-card {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px;
+}
+
+.settings-card h2 {
+  margin: 0;
+}
+
+.settings-card .muted {
+  margin: 0;
+  font-size: 13px;
+}
+
+.settings-card label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-card input,
+.settings-card textarea {
+  font: inherit;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+}
+
+.form-error {
+  color: #a3372e;
+  font-size: 13px;
+  margin: 0;
 }
 
 .order-date {

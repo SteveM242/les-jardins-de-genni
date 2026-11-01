@@ -27,11 +27,23 @@ async function login({ email, password }) {
   return state.customer;
 }
 
+async function updateProfile({ name, phone, address }) {
+  const res = await api("/api/account", { method: "PATCH", body: { name, phone, address } });
+  if (!res.ok) throw new Error(res.error || "Enregistrement impossible.");
+  state.customer = res.data.customer;
+  return state.customer;
+}
+
+async function changePassword({ currentPassword, newPassword }) {
+  const res = await api("/api/account/password", { method: "POST", body: { currentPassword, newPassword } });
+  if (!res.ok) throw new Error(res.error || "Changement impossible.");
+}
+
 async function logout() {
   await api("/api/auth/logout", { method: "POST" });
   state.customer = null;
 }
 
 export function useAuth() {
-  return { state, fetchMe, signup, login, logout };
+  return { state, fetchMe, signup, login, logout, updateProfile, changePassword };
 }

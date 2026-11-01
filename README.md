@@ -58,6 +58,9 @@ scripts/                 outils ponctuels (optimisation des images)
 
 Points à connaître :
 
+- **Paniers sur mesure** : le client compose son panier sur `/composer` ; chaque ligne de commande enregistre le contenu exact du panier au moment de la commande (paniers du catalogue compris), pour que modifier un panier plus tard ne change pas l'historique. Genni voit ce contenu dans le tableau de bord et dans l'email de commande.
+- **Relecture avant envoi** : le checkout se fait en 3 étapes (panier, coordonnées, relecture). La relecture appelle `/api/cart/check` (prix et disponibilités relus en base) puis exige une confirmation explicite. Si un article disparaît ou qu'un prix change entre-temps, le serveur répond 409 et le client revoit ce qui a bougé : rien n'est jamais ignoré en silence.
+- **Comptes** : mot de passe oublié par email (jeton à usage unique valable 1 h, stocké haché ; **nécessite le SMTP**), modification du profil et du mot de passe. Les commandes passées sans compte ne sont volontairement pas rattachées automatiquement à un compte créé ensuite : l'email n'étant pas vérifié, cela exposerait les commandes d'autrui.
 - **Prix** : toujours recalculés côté serveur (`lib/pricing.cjs`) ; le front n'envoie que des slugs et des quantités.
 - **Photos** : les photos envoyées par l'admin sont stockées en base64 dans Postgres (pas de volume de fichiers) et servies par `/api/products/:slug/image` et `/api/baskets/:slug/image`, avec un cache long (l'URL change à chaque nouvel envoi). Limite : 3 Mo par photo.
 - **Sessions** : cookies `HttpOnly`, 7 jours pour l'admin et 30 jours pour les clients. Incrémenter `token_version` d'un compte révoque ses sessions (bouton « Déconnecter tous les appareils » côté admin).

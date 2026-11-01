@@ -46,6 +46,7 @@ async function submit() {
           Mot de passe
           <PasswordField v-model="form.password" autocomplete="current-password" />
         </label>
+        <RouterLink to="/compte/mot-de-passe-oublie" class="forgot-link">Mot de passe oublié ?</RouterLink>
 
         <p v-if="error" class="form-error" role="alert">{{ error }}</p>
 
@@ -118,6 +119,14 @@ h1 {
   padding: 11px 12px;
   border-radius: 10px;
   border: 1.5px solid var(--line);
+}
+
+.forgot-link {
+  justify-self: end;
+  margin-top: -8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--clay-dark);
 }
 
 .form-error {

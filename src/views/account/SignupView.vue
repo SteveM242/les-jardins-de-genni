@@ -46,8 +46,8 @@ async function submit() {
           <input v-model.trim="form.phone" type="tel" autocomplete="tel" />
         </label>
         <label>
-          Mot de passe (6 caractères min.)
-          <PasswordField v-model="form.password" minlength="6" autocomplete="new-password" />
+          Mot de passe (8 caractères min.)
+          <PasswordField v-model="form.password" minlength="8" autocomplete="new-password" />
         </label>
 
         <p v-if="error" class="form-error" role="alert">{{ error }}</p>
