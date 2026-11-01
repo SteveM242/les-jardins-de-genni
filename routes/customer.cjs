@@ -8,20 +8,12 @@ const { cleanText } = require("../lib/text.cjs");
 const { isConfigured, sendPasswordResetEmail, sendVerificationEmail } = require("../lib/mailer.cjs");
 const { linkGuestOrdersByEmail } = require("../lib/orderLinking.cjs");
 const { samePhone } = require("../lib/phone.cjs");
-const { passwordMatches } = require("../lib/passwords.cjs");
+const { passwordMatches, validPassword, PASSWORD_RULE } = require("../lib/passwords.cjs");
 const { baseUrlFor } = require("../lib/urls.cjs");
 
 const router = express.Router();
 
-const MIN_PASSWORD = 8;
-// bcrypt ignore tout ce qui dépasse 72 octets : on refuse plutôt que de tronquer en silence.
-const MAX_PASSWORD = 72;
-const PASSWORD_RULE = `Le mot de passe doit contenir entre ${MIN_PASSWORD} et ${MAX_PASSWORD} caractères.`;
 const GENERIC_LOGIN_ERROR = "Email ou mot de passe incorrect.";
-
-function validPassword(password) {
-  return password.length >= MIN_PASSWORD && password.length <= MAX_PASSWORD;
-}
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");

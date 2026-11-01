@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const bcrypt = require("bcryptjs");
 const { pool, query } = require("./db.cjs");
+const { ensureAdmin } = require("./lib/adminBootstrap.cjs");
 
 const MIGRATIONS_DIR = path.join(__dirname, "migrations");
 // Verrou applicatif Postgres : évite que deux instances migrent en même temps.
@@ -148,21 +149,11 @@ async function migrate() {
     console.log(`[migrate] ${SEED_PRODUCTS.length} articles de démo insérés.`);
   }
 
-  if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
-    const email = process.env.ADMIN_EMAIL.trim().toLowerCase();
-    const { rows } = await query("SELECT id, password_hash FROM admins WHERE email = $1", [email]);
-    if (rows.length === 0) {
-      const passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
-      await query("INSERT INTO admins (email, password_hash) VALUES ($1,$2)", [email, passwordHash]);
-      console.log(`[migrate] Compte admin créé pour ${email}.`);
-    } else if (!(await bcrypt.compare(process.env.ADMIN_PASSWORD, rows[0].password_hash))) {
-      // Mot de passe changé dans l'environnement : on le met à jour et on coupe les sessions existantes.
-      const passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
-      await query("UPDATE admins SET password_hash = $1, token_version = token_version + 1 WHERE email = $2", [passwordHash, email]);
-      console.log(`[migrate] Mot de passe admin mis à jour pour ${email}.`);
-    }
-  } else {
-    console.log("[migrate] ADMIN_EMAIL / ADMIN_PASSWORD non configurés — pas de compte admin créé.");
+  // Une erreur ici (ex: email déjà pris) ne doit pas empêcher le site de démarrer.
+  try {
+    await ensureAdmin({ query, hashPassword: (password) => bcrypt.hash(password, 10), env: process.env });
+  } catch (err) {
+    console.error("[migrate] amorçage du compte admin impossible :", err.message);
   }
 }
 
