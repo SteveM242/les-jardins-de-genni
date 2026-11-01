@@ -61,7 +61,7 @@ const slides = computed(() => (siteContent.state.gallery.length > 0 ? siteConten
     <section class="gallery-section" aria-labelledby="gallery-title">
       <div class="container">
         <p class="eyebrow">En images</p>
-        <h2 id="gallery-title">Le jardin de Genni, au fil des jours</h2>
+        <h2 id="gallery-title">Les jardins de Genni, au fil des jours</h2>
         <p class="section-intro">
           La lumière du matin, le vent dans les feuilles, la récolte : un aperçu de ce qui se cultive, se cueille et se
           prépare avec soin.
