@@ -556,6 +556,11 @@ async function submitOrder() {
                     Je confirme ma commande : j'ai vérifié les articles, les quantités et le total ({{ formatPrice(total) }} €).
                   </span>
                 </label>
+                <p class="legal-note">
+                  En confirmant, vous acceptez les
+                  <RouterLink to="/conditions" target="_blank">conditions de commande</RouterLink> et la
+                  <RouterLink to="/confidentialite" target="_blank">politique de confidentialité</RouterLink>.
+                </p>
                 <p v-if="status === 'error'" class="form-error" role="alert">{{ errorMessage }}</p>
                 <div class="form-actions">
                   <button type="button" class="btn ghost" @click="goToStep(2)">← Retour</button>
@@ -1090,6 +1095,17 @@ h1 {
   height: 20px;
   margin-top: 2px;
   flex-shrink: 0;
+}
+
+.legal-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.legal-note a {
+  color: var(--clay-dark);
+  font-weight: 600;
 }
 
 .confirm-box .btn:disabled {

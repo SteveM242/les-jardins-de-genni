@@ -57,5 +57,17 @@
     "title": "Confirmation de l'email",
     "description": "Confirmez votre adresse email.",
     "noindex": true
+  },
+  "/mentions-legales": {
+    "title": "Mentions légales",
+    "description": "Éditeur, hébergeur et crédits photographiques du site Les Jardins de Genni."
+  },
+  "/confidentialite": {
+    "title": "Politique de confidentialité",
+    "description": "Quelles données sont collectées, pourquoi, et comment exercer vos droits."
+  },
+  "/conditions": {
+    "title": "Conditions de commande",
+    "description": "Produits, prix, commande, paiement, retrait et livraison, annulation."
   }
 }

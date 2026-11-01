@@ -21,6 +21,9 @@ import AdminProductsView from "../views/admin/AdminProductsView.vue";
 import AdminBasketsView from "../views/admin/AdminBasketsView.vue";
 import AdminDiscountsView from "../views/admin/AdminDiscountsView.vue";
 import AdminSiteView from "../views/admin/AdminSiteView.vue";
+import LegalNoticeView from "../views/LegalNoticeView.vue";
+import PrivacyView from "../views/PrivacyView.vue";
+import TermsView from "../views/TermsView.vue";
 import NotFoundView from "../views/NotFoundView.vue";
 import { useAuth } from "../stores/auth.js";
 import { useAdminAuth } from "../stores/adminAuth.js";
@@ -36,6 +39,9 @@ const router = createRouter({
     { path: "/comment-ca-marche", component: HowItWorksView },
     { path: "/a-propos", component: AboutView },
     { path: "/contact", component: ContactView },
+    { path: "/mentions-legales", component: LegalNoticeView },
+    { path: "/confidentialite", component: PrivacyView },
+    { path: "/conditions", component: TermsView },
     { path: "/compte/connexion", component: LoginView, meta: { guestOnly: "customer" } },
     { path: "/compte/inscription", component: SignupView, meta: { guestOnly: "customer" } },
     { path: "/compte/mot-de-passe-oublie", component: ForgotPasswordView, meta: { guestOnly: "customer" } },

@@ -31,6 +31,12 @@ import SocialLinks from "./SocialLinks.vue";
       </div>
     </div>
 
+    <p class="footer-legal">
+      <RouterLink to="/mentions-legales">Mentions légales</RouterLink>
+      <RouterLink to="/confidentialite">Confidentialité</RouterLink>
+      <RouterLink to="/conditions">Conditions de commande</RouterLink>
+    </p>
+
     <p class="footer-copyright">
       © {{ new Date().getFullYear() }} {{ site.brandName }} ·
       <RouterLink to="/admin/connexion" class="pro-link">Espace Genni</RouterLink>
@@ -81,6 +87,25 @@ import SocialLinks from "./SocialLinks.vue";
 .footer-nav .eyebrow,
 .footer-contact .eyebrow {
   color: #ffd36b;
+}
+
+.footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 22px;
+  margin: 28px 0 0;
+  font-size: 13px;
+}
+
+.footer-legal a {
+  color: #b4cdb9;
+  text-decoration: none;
+}
+
+.footer-legal a:hover {
+  color: #fff;
+  text-decoration: underline;
 }
 
 .footer-copyright {
