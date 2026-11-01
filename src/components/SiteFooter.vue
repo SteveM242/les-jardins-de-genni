@@ -1,6 +1,7 @@
 <script setup>
 import BrandLogo from "./BrandLogo.vue";
 import { site, whatsappGeneralLink } from "../data/site.js";
+import SocialLinks from "./SocialLinks.vue";
 </script>
 
 <template>
@@ -25,6 +26,7 @@ import { site, whatsappGeneralLink } from "../data/site.js";
         <a :href="whatsappGeneralLink()" target="_blank" rel="noreferrer">WhatsApp</a>
         <a :href="`mailto:${site.email}`">{{ site.email }}</a>
         <span>{{ site.location }}</span>
+        <SocialLinks variant="footer" />
       </div>
     </div>
 

@@ -1,14 +1,26 @@
 <script setup>
-import { onMounted } from "vue";
+import { computed, onMounted } from "vue";
 import { RouterLink } from "vue-router";
 import { site } from "../data/site.js";
 import { useCatalog } from "../stores/catalog.js";
 import PanierCard from "../components/PanierCard.vue";
 import LoadError from "../components/LoadError.vue";
+import GalleryCarousel from "../components/GalleryCarousel.vue";
+import SocialLinks from "../components/SocialLinks.vue";
+import { useSiteContent } from "../stores/siteContent.js";
 
 const previewSteps = site.howItWorks.slice(0, 3);
 const catalog = useCatalog();
 onMounted(catalog.load);
+
+// Galerie gérée par Genni ; tant qu'elle est vide, deux photos de Martinique (voir public/images/CREDITS.md).
+const siteContent = useSiteContent();
+onMounted(() => siteContent.load());
+const FALLBACK_SLIDES = [
+  { url: "/images/hero-jardin.webp", caption: "Les jardins de Balata, en Martinique" },
+  { url: "/images/about-martinique.webp", caption: "Bananeraie et canne à sucre, sous le vent des Antilles" }
+];
+const slides = computed(() => (siteContent.state.gallery.length > 0 ? siteContent.state.gallery : FALLBACK_SLIDES));
 </script>
 
 <template>
@@ -43,6 +55,24 @@ onMounted(catalog.load);
         <p class="catalog-link">
           <RouterLink to="/produits">Envie de composer votre propre panier ? Voir les articles à l'unité →</RouterLink>
         </p>
+      </div>
+    </section>
+
+    <section class="gallery-section" aria-labelledby="gallery-title">
+      <div class="container">
+        <p class="eyebrow">En images</p>
+        <h2 id="gallery-title">Le jardin de Genni, au fil des jours</h2>
+        <p class="section-intro">
+          La lumière du matin, le vent dans les feuilles, la récolte : un aperçu de ce qui se cultive, se cueille et se
+          prépare avec soin.
+        </p>
+
+        <GalleryCarousel :slides="slides" />
+
+        <div class="follow">
+          <p class="follow-title">Suivez Genni au quotidien</p>
+          <SocialLinks />
+        </div>
       </div>
     </section>
 
@@ -109,8 +139,36 @@ onMounted(catalog.load);
 }
 
 .paniers-section,
+.gallery-section,
 .steps-section {
   padding: 64px 0;
+}
+
+.gallery-section {
+  background: var(--green-soft);
+  border-top: 1px solid var(--green-tint);
+}
+
+.gallery-section .section-intro {
+  margin-bottom: 28px;
+}
+
+.follow {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  margin-top: 36px;
+}
+
+.follow-title {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 18px;
+}
+
+/* Aucun réseau renseigné : on n'affiche pas un titre sans liens. */
+.follow:not(:has(.social-links)) {
+  display: none;
 }
 
 .section-intro {

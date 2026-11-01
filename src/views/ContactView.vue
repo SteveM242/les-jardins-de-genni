@@ -1,5 +1,6 @@
 <script setup>
 import { site, whatsappGeneralLink } from "../data/site.js";
+import SocialLinks from "../components/SocialLinks.vue";
 </script>
 
 <template>
@@ -31,6 +32,12 @@ import { site, whatsappGeneralLink } from "../data/site.js";
         </div>
       </div>
 
+      <section class="social-block" aria-labelledby="social-title">
+        <h2 id="social-title">Suivez Genni</h2>
+        <p class="social-intro">Photos du jardin, récoltes de la semaine, coulisses : retrouvez Genni sur ses réseaux.</p>
+        <SocialLinks />
+      </section>
+
       <p class="note">
         ⚠️ Coordonnées provisoires — à remplacer par les vraies informations de contact de Genni
         (numéro WhatsApp, commune exacte, horaires).
@@ -54,6 +61,26 @@ h1 {
   color: var(--muted);
   max-width: 540px;
   margin: 0 0 40px;
+}
+
+.social-block {
+  display: grid;
+  gap: 12px;
+  margin-top: 40px;
+}
+
+.social-block h2 {
+  font-size: 20px;
+}
+
+.social-intro {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* Aucun réseau renseigné : pas de bloc vide. */
+.social-block:not(:has(.social-links)) {
+  display: none;
 }
 
 .contact-grid {

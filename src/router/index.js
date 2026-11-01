@@ -20,6 +20,7 @@ import AdminDashboardView from "../views/admin/AdminDashboardView.vue";
 import AdminProductsView from "../views/admin/AdminProductsView.vue";
 import AdminBasketsView from "../views/admin/AdminBasketsView.vue";
 import AdminDiscountsView from "../views/admin/AdminDiscountsView.vue";
+import AdminSiteView from "../views/admin/AdminSiteView.vue";
 import NotFoundView from "../views/NotFoundView.vue";
 import { useAuth } from "../stores/auth.js";
 import { useAdminAuth } from "../stores/adminAuth.js";
@@ -45,6 +46,7 @@ const router = createRouter({
     { path: "/admin", component: AdminDashboardView, meta: { bare: true, requiresAdmin: true } },
     { path: "/admin/articles", component: AdminProductsView, meta: { bare: true, requiresAdmin: true } },
     { path: "/admin/paniers", component: AdminBasketsView, meta: { bare: true, requiresAdmin: true } },
+    { path: "/admin/galerie", component: AdminSiteView, meta: { bare: true, requiresAdmin: true } },
     { path: "/admin/promos", component: AdminDiscountsView, meta: { bare: true, requiresAdmin: true } },
     { path: "/:pathMatch(.*)*", component: NotFoundView }
   ],
