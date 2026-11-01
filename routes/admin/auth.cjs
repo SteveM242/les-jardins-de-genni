@@ -1,9 +1,9 @@
 const express = require("express");
-const bcrypt = require("bcryptjs");
 const { query } = require("../../db.cjs");
 const { startSession, clearAuthCookie, readSession, revokeSessions, requireRole } = require("../../auth.cjs");
 const rateLimits = require("../../lib/rateLimits.cjs");
 const { cleanText } = require("../../lib/text.cjs");
+const { passwordMatches } = require("../../lib/passwords.cjs");
 
 const router = express.Router();
 
@@ -12,9 +12,10 @@ router.post("/login", rateLimits.login, async (req, res) => {
   const password = String(req.body.password || "");
   const { rows } = await query("SELECT * FROM admins WHERE email = $1", [email]);
   const admin = rows[0];
-  if (!admin || !(await bcrypt.compare(password, admin.password_hash))) {
-    const { rows: customerRows } = await query("SELECT id FROM customers WHERE email = $1", [email]);
-    if (customerRows[0]) {
+  if (!(await passwordMatches(admin?.password_hash, password))) {
+    // Indice "compte client" seulement si le mot de passe est bien celui du compte client (aucune fuite d'existence).
+    const { rows: customerRows } = await query("SELECT password_hash FROM customers WHERE email = $1", [email]);
+    if (await passwordMatches(customerRows[0]?.password_hash, password)) {
       return res.status(401).json({
         ok: false,
         error: "Cet email correspond à un compte client, pas à l'espace Genni. Utilisez la page de connexion client (/compte/connexion)."

@@ -9,6 +9,7 @@ const { query } = require("./db.cjs");
 const { requireSameOrigin } = require("./auth.cjs");
 const { BASKET_COLUMNS, publicBasket } = require("./lib/catalogRows.cjs");
 const seo = require("./lib/seo.cjs");
+const { baseUrlFor } = require("./lib/urls.cjs");
 const rateLimits = require("./lib/rateLimits.cjs");
 
 const distDir = path.join(__dirname, "dist");
@@ -19,11 +20,6 @@ let indexTemplate = null;
 function readIndexTemplate() {
   if (!indexTemplate) indexTemplate = fs.readFileSync(path.join(distDir, "index.html"), "utf8");
   return indexTemplate;
-}
-
-// SITE_URL (ex: https://lesjardinsdegenni.fr) fixe les URLs absolues du sitemap et des aperçus de partage.
-function baseUrlFor(req) {
-  return (process.env.SITE_URL || `${req.protocol}://${req.get("host")}`).replace(/\/+$/, "");
 }
 
 function createApp() {
