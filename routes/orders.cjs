@@ -11,8 +11,9 @@ const {
   computeTotal,
   assertDiscountUsable,
   discountAmountFor,
-  clampQuantity
+  roundMoney
 } = require("../lib/pricing.cjs");
+const { resolveLines, findPriceChanges } = require("../lib/cart.cjs");
 
 const router = express.Router();
 
@@ -38,27 +39,20 @@ router.post("/discounts/validate", rateLimits.discounts, async (req, res) => {
   }
 });
 
-async function priceItems(requestedItems) {
-  const items = [];
-  for (const requested of requestedItems) {
-    const qty = clampQuantity(requested.qty);
-    const isProduct = requested.type === "product";
-    const { rows } = await query(
-      `SELECT slug, name, price FROM ${isProduct ? "products" : "baskets"} WHERE slug = $1 AND active = true`,
-      [requested.slug]
-    );
-    if (rows[0]) {
-      items.push({
-        type: isProduct ? "product" : "basket",
-        slug: rows[0].slug,
-        name: rows[0].name,
-        price: Number(rows[0].price),
-        qty
-      });
-    }
-  }
-  return items;
-}
+// Relit le panier du client en base (prix, disponibilité) sans rien enregistrer :
+// sert à l'étape de relecture avant l'envoi de la commande.
+router.post("/cart/check", async (req, res) => {
+  const requested = Array.isArray(req.body.items) ? req.body.items : [];
+  const { lines, unavailable } = await resolveLines(requested, { query });
+  const priceChanges = findPriceChanges(requested, lines);
+  res.json({
+    ok: true,
+    lines: lines.map((line) => ({ ...line, lineTotal: roundMoney(line.price * line.qty) })),
+    unavailable,
+    priceChanges,
+    subtotal: computeSubtotal(lines)
+  });
+});
 
 router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
   if (req.body.website) {
@@ -80,15 +74,34 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
     return res.status(400).json({ ok: false, error: "Merci d'indiquer l'adresse de livraison." });
   }
 
-  const requestedItems = Array.isArray(req.body.items) ? req.body.items.slice(0, 100) : [];
+  const requestedItems = Array.isArray(req.body.items) ? req.body.items : [];
   if (requestedItems.length === 0) {
     return res.status(400).json({ ok: false, error: "Le panier est vide." });
   }
 
-  const items = await priceItems(requestedItems);
-  if (items.length === 0) {
-    return res.status(400).json({ ok: false, error: "Aucun article reconnu dans le panier." });
+  const { lines, unavailable } = await resolveLines(requestedItems, { query });
+
+  // Jamais d'article ignoré en silence : le client doit voir ce qui change avant de confirmer.
+  if (unavailable.length > 0) {
+    return res.status(409).json({
+      ok: false,
+      code: "ITEMS_UNAVAILABLE",
+      error: "Certains articles de votre panier ne sont plus disponibles. Vérifiez votre panier avant de confirmer.",
+      unavailable
+    });
   }
+  const priceChanges = findPriceChanges(requestedItems, lines);
+  if (priceChanges.length > 0) {
+    return res.status(409).json({
+      ok: false,
+      code: "PRICES_CHANGED",
+      error: "Certains prix ont changé depuis votre dernière visite. Vérifiez votre panier avant de confirmer.",
+      priceChanges
+    });
+  }
+
+  // Le snapshot enregistré garde le contenu des paniers au moment de la commande.
+  const items = lines.map(({ key: _key, ...line }) => line);
 
   const subtotal = computeSubtotal(items);
   const orderNumber = crypto.randomUUID().slice(0, 8).toUpperCase();

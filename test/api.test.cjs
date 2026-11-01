@@ -12,8 +12,16 @@ installFakeDb(async (text, params = []) => {
   calls.push({ text, params });
   const sql = text.replace(/\s+/g, " ");
   if (sql.includes("SELECT token_version FROM admins")) return { rows: [{ token_version: revokedAdmin ? 1 : 0 }] };
-  if (sql.includes("FROM products WHERE slug = $1 AND active = true")) {
-    return { rows: params[0] === "igname" ? [{ slug: "igname", name: "Igname", price: "10.00" }] : [] };
+  if (sql.includes("FROM products WHERE slug = ANY")) {
+    const catalog = {
+      igname: { slug: "igname", name: "Igname", unit: "kg", price: "10.00" },
+      mangue: { slug: "mangue", name: "Mangues", unit: "kg", price: "3.50" }
+    };
+    return { rows: params[0].filter((slug) => catalog[slug]).map((slug) => catalog[slug]) };
+  }
+  if (sql.includes("FROM baskets WHERE slug = ANY")) {
+    const basket = { slug: "panier-decouverte", name: "Panier Découverte", price: "12.00", items: ["Mangues", "Christophines"] };
+    return { rows: params[0].includes("panier-decouverte") ? [basket] : [] };
   }
   if (sql.includes("FROM discount_codes")) return { rows: discountRow ? [discountRow] : [] };
   if (sql.includes("SELECT image FROM products")) {
@@ -117,11 +125,99 @@ test("la livraison exige une adresse", async () => {
   assert.match(res.json.error, /adresse/i);
 });
 
-test("une commande sans article connu est refusée", async () => {
+const customer = { name: "Marie", phone: "0696000000" };
+
+test("un article indisponible bloque la commande au lieu d'être ignoré en silence", async () => {
   const res = await app.request("POST", "/api/orders", {
-    body: { customer: { name: "Marie", phone: "0696000000" }, items: [{ type: "product", slug: "inconnu", qty: 1 }] }
+    body: {
+      customer,
+      items: [
+        { key: "a", type: "product", slug: "igname", qty: 1 },
+        { key: "b", type: "product", slug: "inconnu", name: "Papaye", qty: 1 }
+      ]
+    }
   });
-  assert.equal(res.status, 400);
+  assert.equal(res.status, 409);
+  assert.equal(res.json.code, "ITEMS_UNAVAILABLE");
+  assert.deepEqual(res.json.unavailable.map((u) => u.name), ["Papaye"]);
+  assert.ok(!calls.some((c) => c.text.includes("INSERT INTO orders")));
+});
+
+test("un prix qui a changé depuis l'ajout au panier bloque la commande", async () => {
+  const res = await app.request("POST", "/api/orders", {
+    body: { customer, items: [{ key: "a", type: "product", slug: "igname", qty: 1, expectedPrice: 8 }] }
+  });
+  assert.equal(res.status, 409);
+  assert.equal(res.json.code, "PRICES_CHANGED");
+  assert.deepEqual(res.json.priceChanges, [{ key: "a", name: "Igname", previousPrice: 8, price: 10 }]);
+  assert.ok(!calls.some((c) => c.text.includes("INSERT INTO orders")));
+});
+
+test("un panier sur mesure est valorisé depuis son contenu et son contenu est enregistré", async () => {
+  const res = await app.request("POST", "/api/orders", {
+    body: {
+      customer,
+      items: [
+        {
+          key: "c1",
+          type: "custom",
+          name: "Panier de Marie",
+          qty: 2,
+          price: 0.01,
+          contents: [{ slug: "igname", qty: 2 }, { slug: "mangue", qty: 3 }]
+        }
+      ]
+    }
+  });
+  assert.equal(res.status, 200);
+  // 2 x 10 + 3 x 3,50 = 30,50 par panier ; 2 paniers = 61
+  assert.equal(res.json.total, 61);
+  const insert = calls.find((c) => c.text.includes("INSERT INTO orders"));
+  const stored = JSON.parse(insert.params[8]);
+  assert.equal(stored.length, 1);
+  assert.equal(stored[0].type, "custom");
+  assert.equal(stored[0].name, "Panier de Marie");
+  assert.equal(stored[0].price, 30.5);
+  assert.deepEqual(stored[0].contents.map((c) => `${c.qty} ${c.name}`), ["2 Igname", "3 Mangues"]);
+  assert.equal(stored[0].key, undefined);
+});
+
+test("un panier du catalogue enregistre son contenu au moment de la commande", async () => {
+  const res = await app.request("POST", "/api/orders", {
+    body: { customer, items: [{ key: "b1", type: "basket", slug: "panier-decouverte", qty: 1 }] }
+  });
+  assert.equal(res.status, 200);
+  const stored = JSON.parse(calls.find((c) => c.text.includes("INSERT INTO orders")).params[8]);
+  assert.deepEqual(stored[0].contents, [{ name: "Mangues" }, { name: "Christophines" }]);
+});
+
+test("un panier sur mesure vide ou avec un article retiré du catalogue est refusé", async () => {
+  const empty = await app.request("POST", "/api/orders", {
+    body: { customer, items: [{ key: "c", type: "custom", name: "Vide", qty: 1, contents: [] }] }
+  });
+  assert.equal(empty.status, 409);
+  const missing = await app.request("POST", "/api/orders", {
+    body: { customer, items: [{ key: "c", type: "custom", name: "X", qty: 1, contents: [{ slug: "igname", qty: 1 }, { slug: "disparu", qty: 1 }] }] }
+  });
+  assert.equal(missing.status, 409);
+  assert.match(missing.json.unavailable[0].reason, /indisponible/);
+});
+
+test("/api/cart/check relit les prix, signale indisponibilités et changements sans rien enregistrer", async () => {
+  const res = await app.request("POST", "/api/cart/check", {
+    body: {
+      items: [
+        { key: "a", type: "product", slug: "igname", qty: 2, expectedPrice: 9 },
+        { key: "b", type: "product", slug: "inconnu", name: "Papaye", qty: 1 }
+      ]
+    }
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.subtotal, 20);
+  assert.equal(res.json.lines[0].lineTotal, 20);
+  assert.equal(res.json.unavailable[0].key, "b");
+  assert.equal(res.json.priceChanges[0].previousPrice, 9);
+  assert.ok(!calls.some((c) => c.text.includes("INSERT")));
 });
 
 test("le honeypot ignore silencieusement les robots", async () => {
