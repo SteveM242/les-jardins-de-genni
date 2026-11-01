@@ -2,9 +2,11 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { installFakeDb, startApp } = require("./helpers.cjs");
 const { sanitizeSocials, SocialLinkError } = require("../lib/siteContent.cjs");
+const { sanitizeSection, SettingsError } = require("../lib/siteSections.cjs");
 
 const calls = [];
 let storedSocials = null;
+let storedSettings = [];
 let galleryCount = 3;
 const imageBase64 = Buffer.from("fake-gallery-bytes").toString("base64");
 const updatedAt = "2026-01-01T00:00:00.000Z";
@@ -14,6 +16,11 @@ installFakeDb(async (text, params = []) => {
   calls.push({ text: sql, params });
   if (sql.includes("SELECT token_version FROM admins")) return { rows: [{ token_version: 0 }] };
   if (sql.includes("FROM site_settings WHERE key = 'socials'")) return { rows: storedSocials ? [{ value: storedSocials }] : [] };
+  if (sql === "SELECT key, value FROM site_settings") {
+    const rows = [...storedSettings];
+    if (storedSocials) rows.push({ key: "socials", value: storedSocials });
+    return { rows };
+  }
   if (sql.includes("FROM gallery_images WHERE active = true")) {
     return { rows: [{ id: 2, caption: "Le vent dans les bananiers", image_updated_at: updatedAt }, { id: 5, caption: "", image_updated_at: updatedAt }] };
   }
@@ -40,6 +47,7 @@ test.after(() => app.close());
 test.beforeEach(() => {
   calls.length = 0;
   storedSocials = null;
+  storedSettings = [];
   galleryCount = 3;
 });
 
@@ -108,7 +116,8 @@ test("réseaux sociaux admin : session requise, liens contrôlés, enregistremen
   const ok = await app.request("PUT", "/api/admin/settings/socials", { cookie: adminCookie(), body });
   assert.equal(ok.status, 200);
   const save = calls.find((c) => c.text.includes("INSERT INTO site_settings"));
-  assert.equal(JSON.parse(save.params[0]).tiktok, "https://www.tiktok.com/@genni");
+  assert.equal(save.params[0], "socials");
+  assert.equal(JSON.parse(save.params[1]).tiktok, "https://www.tiktok.com/@genni");
 });
 
 test("galerie admin : ajout d'une photo (position suivante), refus d'un faux fichier image", async () => {
@@ -157,4 +166,76 @@ test("galerie admin : légende / visibilité, suppression, id invalide", async (
   assert.equal((await app.request("DELETE", "/api/admin/gallery/abc", { cookie: adminCookie() })).status, 404);
   assert.equal((await app.request("DELETE", "/api/admin/gallery/2", { cookie: adminCookie() })).status, 200);
   assert.ok(calls.some((c) => c.text.includes("DELETE FROM gallery_images")));
+});
+
+test("sanitizeSection : annonce, coordonnées, légal", () => {
+  assert.deepEqual(sanitizeSection("announcement", { text: "  Commandes jusqu'à jeudi  ", active: true }), {
+    text: "Commandes jusqu'à jeudi",
+    active: true
+  });
+  // Une annonce vide ne peut pas être "active".
+  assert.deepEqual(sanitizeSection("announcement", { text: "  ", active: true }), { text: "", active: false });
+
+  const contact = sanitizeSection("contact", { whatsapp: "0696 12 34 56", email: "genni@example.com", location: "Ducos", hours: "Lun-Ven" });
+  assert.equal(contact.whatsapp, "596696123456");
+  assert.equal(sanitizeSection("contact", { whatsapp: "+596 696 12 34 56" }).whatsapp, "596696123456");
+  assert.equal(sanitizeSection("contact", { whatsapp: "" }).whatsapp, "");
+  assert.throws(() => sanitizeSection("contact", { whatsapp: "12" }), SettingsError);
+  assert.throws(() => sanitizeSection("contact", { email: "pas-un-email" }), SettingsError);
+
+  assert.equal(sanitizeSection("legal", { siret: "123 456 789 00012" }).siret, "12345678900012");
+  assert.throws(() => sanitizeSection("legal", { siret: "123" }), SettingsError);
+  assert.throws(() => sanitizeSection("inconnue", {}), SettingsError);
+  assert.equal(sanitizeSection("about", { text: "Ligne 1\r\n\r\nLigne 2" }).text, "Ligne 1\n\nLigne 2");
+});
+
+test("GET /api/site : annonce publiée seulement si active, coordonnées et textes exposés", async () => {
+  storedSettings = [
+    { key: "announcement", value: { text: "Retrait vendredi", active: true } },
+    { key: "contact", value: { whatsapp: "596696123456", email: "genni@example.com", location: "Ducos", hours: "" } },
+    { key: "about", value: { text: "Notre histoire" } },
+    { key: "checkout", value: { pickupInfo: "Retrait à Ducos", deliveryInfo: "" } },
+    { key: "legal", value: { companyName: "Les Jardins de Genni", siret: "12345678900012" } }
+  ];
+  const res = await app.request("GET", "/api/site");
+  assert.deepEqual(res.json.announcement, { text: "Retrait vendredi" });
+  assert.equal(res.json.contact.whatsapp, "596696123456");
+  assert.equal(res.json.about.text, "Notre histoire");
+  assert.equal(res.json.checkout.pickupInfo, "Retrait à Ducos");
+  assert.equal(res.json.legal.companyName, "Les Jardins de Genni");
+  assert.equal(res.json.legal.mediator, "", "champ non renseigné -> vide");
+
+  storedSettings = [{ key: "announcement", value: { text: "Brouillon", active: false } }];
+  const hidden = await app.request("GET", "/api/site");
+  assert.equal(hidden.json.announcement, null);
+  assert.equal(hidden.json.contact.whatsapp, "");
+});
+
+test("sections admin : session requise, validation, enregistrement", async () => {
+  const value = { whatsapp: "0696 12 34 56", email: "genni@example.com", location: "Ducos", hours: "" };
+  assert.equal((await app.request("PUT", "/api/admin/settings/sections/contact", { body: { value } })).status, 401);
+  assert.equal((await app.request("PUT", "/api/admin/settings/sections/nimporte", { cookie: adminCookie(), body: { value } })).status, 404);
+
+  const bad = await app.request("PUT", "/api/admin/settings/sections/contact", { cookie: adminCookie(), body: { value: { whatsapp: "1" } } });
+  assert.equal(bad.status, 400);
+  assert.match(bad.json.error, /WhatsApp/);
+  assert.ok(!calls.some((c) => c.text.includes("INSERT INTO site_settings")));
+
+  const ok = await app.request("PUT", "/api/admin/settings/sections/contact", { cookie: adminCookie(), body: { value } });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.value.whatsapp, "596696123456");
+  const save = calls.find((c) => c.text.includes("INSERT INTO site_settings"));
+  assert.equal(save.params[0], "contact");
+  assert.equal(JSON.parse(save.params[1]).whatsapp, "596696123456");
+});
+
+test("GET /api/admin/settings/all renvoie toutes les sections complétées", async () => {
+  storedSocials = { instagram: "https://www.instagram.com/genni" };
+  storedSettings = [{ key: "about", value: { text: "Salut" } }];
+  const res = await app.request("GET", "/api/admin/settings/all", { cookie: adminCookie() });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.socials.instagram, "https://www.instagram.com/genni");
+  assert.equal(res.json.about.text, "Salut");
+  assert.deepEqual(res.json.announcement, { text: "", active: false });
+  assert.equal(res.json.legal.siret, "");
 });

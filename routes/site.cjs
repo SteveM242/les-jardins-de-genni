@@ -3,21 +3,25 @@ const { query } = require("../db.cjs");
 const { numericId } = require("../lib/params.cjs");
 const { parseDataUri } = require("../lib/images.cjs");
 const { normalizeStoredSocials, galleryImageUrl } = require("../lib/siteContent.cjs");
+const { sectionsFromRows, publicSections } = require("../lib/siteSections.cjs");
 
 const router = express.Router();
 router.param("id", numericId);
 
-// Contenu éditorial public : liens réseaux sociaux + photos de la galerie d'accueil.
+// Contenu éditorial public géré par Genni : réseaux sociaux, galerie d'accueil, annonce, coordonnées,
+// présentation, infos de retrait/livraison et mentions légales.
 router.get("/site", async (_req, res) => {
   const [{ rows: settings }, { rows: gallery }] = await Promise.all([
-    query("SELECT value FROM site_settings WHERE key = 'socials'"),
+    query("SELECT key, value FROM site_settings"),
     query("SELECT id, caption, image_updated_at FROM gallery_images WHERE active = true ORDER BY position, id")
   ]);
+  const socials = settings.find((row) => row.key === "socials")?.value;
   res.set("Cache-Control", "public, max-age=60");
   res.json({
     ok: true,
-    socials: normalizeStoredSocials(settings[0]?.value),
-    gallery: gallery.map((row) => ({ id: row.id, caption: row.caption, url: galleryImageUrl(row) }))
+    socials: normalizeStoredSocials(socials),
+    gallery: gallery.map((row) => ({ id: row.id, caption: row.caption, url: galleryImageUrl(row) })),
+    ...publicSections(sectionsFromRows(settings))
   });
 });
 
