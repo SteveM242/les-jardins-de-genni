@@ -25,6 +25,74 @@ async function loadChecklist() {
   todo.value = items;
 }
 
+// ---------- Chiffres ----------
+const stats = ref(null);
+
+async function loadStats() {
+  const res = await api("/api/admin/stats");
+  if (res.ok) stats.value = res.data;
+}
+
+function formatEuros(value) {
+  return `${Number(value).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €`;
+}
+
+// ---------- Alerte de nouvelle commande (son, notification, compteur dans l'onglet) ----------
+const SOUND_KEY = "genni-order-sound";
+
+function readSound() {
+  try {
+    return localStorage.getItem(SOUND_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+const soundOn = ref(readSound());
+let audioContext = null;
+let knownNew = null;
+
+// Deux notes courtes. Le navigateur n'autorise le son qu'après un clic : d'où le bouton d'activation.
+function beep() {
+  try {
+    audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+    [880, 1175].forEach((frequency, index) => {
+      const start = audioContext.currentTime + index * 0.22;
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.2);
+      oscillator.connect(gain).connect(audioContext.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 0.22);
+    });
+  } catch {
+    // audio indisponible : l'alerte visuelle suffit
+  }
+}
+
+function toggleSound() {
+  soundOn.value = !soundOn.value;
+  try {
+    localStorage.setItem(SOUND_KEY, soundOn.value ? "1" : "0");
+  } catch {
+    // sans importance
+  }
+  if (soundOn.value) beep();
+}
+
+function handleNewCount(count) {
+  if (knownNew !== null && count > knownNew) {
+    const added = count - knownNew;
+    toast.success(`${added} nouvelle${added > 1 ? "s" : ""} commande${added > 1 ? "s" : ""} !`);
+    if (soundOn.value) beep();
+  }
+  knownNew = count;
+  document.title = count > 0 ? `(${count}) Commandes à traiter — Espace pro` : "Espace pro — Les Jardins de Genni";
+}
+
 const orders = ref([]);
 const counts = ref({ all: 0 });
 const total = ref(0);
@@ -64,6 +132,7 @@ async function loadOrders({ silent = false } = {}) {
   if (res.ok) {
     orders.value = res.data.orders;
     counts.value = res.data.counts;
+    handleNewCount(res.data.counts.nouvelle || 0);
     total.value = res.data.total;
     pageSize.value = res.data.pageSize;
     loadError.value = "";
@@ -123,10 +192,14 @@ watch(search, () => {
 let refreshTimer = null;
 onMounted(() => {
   loadChecklist();
+  loadStats();
   loadOrders();
   refreshTimer = setInterval(() => {
-    if (document.visibilityState === "visible") loadOrders({ silent: true });
-  }, 60000);
+    if (document.visibilityState === "visible") {
+      loadOrders({ silent: true });
+      loadStats();
+    }
+  }, 30000);
 });
 
 onBeforeUnmount(() => {
@@ -137,7 +210,12 @@ onBeforeUnmount(() => {
 
 <template>
   <AdminNav>
-    <h1>Commandes</h1>
+    <div class="dash-head">
+      <h1>Commandes</h1>
+      <button type="button" class="sound-toggle" :aria-pressed="soundOn" @click="toggleSound">
+        {{ soundOn ? "🔔 Alerte sonore activée" : "🔕 Activer l'alerte sonore" }}
+      </button>
+    </div>
 
     <aside v-if="todo.length" class="todo" aria-label="À compléter">
       <strong>À compléter avant d'annoncer le site :</strong>
@@ -147,6 +225,31 @@ onBeforeUnmount(() => {
         </li>
       </ul>
     </aside>
+
+    <section v-if="stats" class="stats" aria-label="Chiffres clés">
+      <div class="stat">
+        <span class="stat-label">À traiter</span>
+        <strong>{{ counts.nouvelle || 0 }}</strong>
+        <span class="stat-sub">nouvelle{{ (counts.nouvelle || 0) > 1 ? "s" : "" }} commande{{ (counts.nouvelle || 0) > 1 ? "s" : "" }}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">7 derniers jours</span>
+        <strong>{{ formatEuros(stats.week.revenue) }}</strong>
+        <span class="stat-sub">{{ stats.week.orders }} commande{{ stats.week.orders > 1 ? "s" : "" }}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">30 derniers jours</span>
+        <strong>{{ formatEuros(stats.month.revenue) }}</strong>
+        <span class="stat-sub">{{ stats.month.orders }} commande{{ stats.month.orders > 1 ? "s" : "" }}</span>
+      </div>
+      <div class="stat stat-top">
+        <span class="stat-label">Les plus commandés (30 jours)</span>
+        <ol v-if="stats.top.length">
+          <li v-for="item in stats.top.slice(0, 3)" :key="item.name">{{ item.qty }} × {{ item.name }}</li>
+        </ol>
+        <span v-else class="stat-sub">Pas encore de commande</span>
+      </div>
+    </section>
 
     <label class="search-field">
       <span class="sr-only">Rechercher une commande</span>
@@ -265,6 +368,79 @@ onBeforeUnmount(() => {
 h1 {
   font-size: 24px;
   margin: 0 0 20px;
+}
+
+.dash-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.dash-head h1 {
+  margin: 0;
+}
+
+.sound-toggle {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.sound-toggle[aria-pressed="true"] {
+  border-color: var(--green);
+  background: var(--green-tint);
+  color: var(--green-dark);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.stat {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.stat-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.stat strong {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 28px;
+  color: var(--green-dark);
+}
+
+.stat-sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.stat-top ol {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 14px;
 }
 
 .todo {

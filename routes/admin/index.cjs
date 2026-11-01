@@ -7,6 +7,7 @@ const router = express.Router();
 router.use(require("./auth.cjs"));
 router.use(requireRole("admin"));
 router.use("/orders", require("./orders.cjs"));
+router.use("/stats", require("./stats.cjs"));
 router.use("/products", require("./products.cjs"));
 router.use("/baskets", require("./baskets.cjs"));
 router.use("/discounts", require("./discounts.cjs"));
