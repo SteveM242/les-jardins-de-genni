@@ -69,5 +69,9 @@
   "/conditions": {
     "title": "Conditions de commande",
     "description": "Produits, prix, commande, paiement, retrait et livraison, annulation."
+  },
+  "/reseaux": {
+    "title": "Suivre Genni sur les réseaux",
+    "description": "Retrouvez Genni sur Instagram, TikTok, Snapchat, Facebook et WhatsApp : photos du jardin, récoltes de la semaine, coulisses."
   }
 }

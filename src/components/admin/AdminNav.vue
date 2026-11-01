@@ -28,6 +28,8 @@ async function logoutEverywhere() {
           <RouterLink to="/admin/paniers">Paniers</RouterLink>
           <RouterLink to="/admin/promos">Codes promo</RouterLink>
           <RouterLink to="/admin/contenu">Contenu du site</RouterLink>
+          <RouterLink to="/admin/utilisateurs">Utilisateurs</RouterLink>
+          <RouterLink to="/admin/compte">Mon compte</RouterLink>
         </nav>
         <button type="button" class="link-logout" @click="logoutEverywhere">Déconnecter tous les appareils</button>
         <button type="button" class="btn ghost compact" @click="logout">Déconnexion</button>
@@ -62,7 +64,8 @@ async function logoutEverywhere() {
 
 nav {
   display: flex;
-  gap: 18px;
+  flex-wrap: wrap;
+  gap: 8px 18px;
   flex: 1;
 }
 

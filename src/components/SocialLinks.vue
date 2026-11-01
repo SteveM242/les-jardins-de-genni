@@ -1,25 +1,12 @@
 <script setup>
-import { computed, onMounted } from "vue";
-import { useSiteContent } from "../stores/siteContent.js";
+import { useSocialNetworks } from "../composables/useSocialNetworks.js";
 
 const props = defineProps({
   // "pills" : boutons colorés (accueil, contact) ; "footer" : liens sobres sur fond sombre
   variant: { type: String, default: "pills" }
 });
 
-const NETWORKS = [
-  { key: "instagram", label: "Instagram", color: "#e1306c" },
-  { key: "tiktok", label: "TikTok", color: "#111111" },
-  { key: "snapchat", label: "Snapchat", color: "#fffc00" },
-  { key: "facebook", label: "Facebook", color: "#1877f2" },
-  { key: "youtube", label: "YouTube", color: "#ff0000" }
-];
-
-const content = useSiteContent();
-onMounted(() => content.load());
-
-// Seuls les réseaux dont Genni a renseigné le lien s'affichent.
-const links = computed(() => NETWORKS.filter((network) => content.state.socials[network.key]).map((network) => ({ ...network, url: content.state.socials[network.key] })));
+const { links } = useSocialNetworks();
 </script>
 
 <template>

@@ -239,3 +239,32 @@ test("GET /api/admin/settings/all renvoie toutes les sections complétées", asy
   assert.deepEqual(res.json.announcement, { text: "", active: false });
   assert.equal(res.json.legal.siret, "");
 });
+
+test("sanitizeSocials : un simple pseudo ou une adresse sans https:// suffit", () => {
+  const result = sanitizeSocials({
+    instagram: "@genni.martinique",
+    tiktok: "@genni",
+    snapchat: "genni972",
+    facebook: "genni.jardins",
+    youtube: "www.youtube.com/@genni"
+  });
+  assert.equal(result.instagram, "https://www.instagram.com/genni.martinique");
+  assert.equal(result.tiktok, "https://www.tiktok.com/@genni");
+  assert.equal(result.snapchat, "https://www.snapchat.com/add/genni972");
+  assert.equal(result.facebook, "https://www.facebook.com/genni.jardins");
+  assert.equal(result.youtube, "https://www.youtube.com/@genni");
+  assert.equal(sanitizeSocials({ instagram: "instagram.com/genni" }).instagram, "https://instagram.com/genni");
+});
+
+test("sanitizeSocials : les raccourcis n'ouvrent pas la porte à des liens piégés", () => {
+  for (const bad of [
+    { instagram: "http://instagram.com/genni" },
+    { instagram: "instagram.com.evil.io/genni" },
+    { tiktok: "instagram.com/genni" },
+    { facebook: "javascript:alert(1)" },
+    { youtube: "//evil.example/x" },
+    { snapchat: "deux mots" }
+  ]) {
+    assert.throws(() => sanitizeSocials(bad), SocialLinkError, JSON.stringify(bad));
+  }
+});

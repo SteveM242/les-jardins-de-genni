@@ -21,6 +21,9 @@ import AdminProductsView from "../views/admin/AdminProductsView.vue";
 import AdminBasketsView from "../views/admin/AdminBasketsView.vue";
 import AdminDiscountsView from "../views/admin/AdminDiscountsView.vue";
 import AdminSiteView from "../views/admin/AdminSiteView.vue";
+import AdminUsersView from "../views/admin/AdminUsersView.vue";
+import AdminAccountView from "../views/admin/AdminAccountView.vue";
+import SocialsView from "../views/SocialsView.vue";
 import LegalNoticeView from "../views/LegalNoticeView.vue";
 import PrivacyView from "../views/PrivacyView.vue";
 import TermsView from "../views/TermsView.vue";
@@ -39,6 +42,7 @@ const router = createRouter({
     { path: "/comment-ca-marche", component: HowItWorksView },
     { path: "/a-propos", component: AboutView },
     { path: "/contact", component: ContactView },
+    { path: "/reseaux", component: SocialsView },
     { path: "/mentions-legales", component: LegalNoticeView },
     { path: "/confidentialite", component: PrivacyView },
     { path: "/conditions", component: TermsView },
@@ -54,6 +58,8 @@ const router = createRouter({
     { path: "/admin/paniers", component: AdminBasketsView, meta: { bare: true, requiresAdmin: true } },
     { path: "/admin/contenu", component: AdminSiteView, meta: { bare: true, requiresAdmin: true } },
     { path: "/admin/galerie", redirect: "/admin/contenu" },
+    { path: "/admin/utilisateurs", component: AdminUsersView, meta: { bare: true, requiresAdmin: true } },
+    { path: "/admin/compte", component: AdminAccountView, meta: { bare: true, requiresAdmin: true } },
     { path: "/admin/promos", component: AdminDiscountsView, meta: { bare: true, requiresAdmin: true } },
     { path: "/:pathMatch(.*)*", component: NotFoundView }
   ],

@@ -15,8 +15,9 @@ const todo = ref([]);
 async function loadChecklist() {
   const res = await api("/api/admin/settings/all");
   if (!res.ok) return;
-  const { contact, about, legal, checkout } = res.data;
+  const { contact, about, legal, checkout, socials } = res.data;
   const items = [];
+  if (!Object.values(socials).some(Boolean)) items.push({ label: "Vos réseaux sociaux (Instagram, TikTok…)", hash: "#socials" });
   if (!contact.whatsapp) items.push({ label: "Votre numéro WhatsApp", hash: "#contact" });
   if (!contact.email) items.push({ label: "Votre email de contact", hash: "#contact" });
   if (!about.text) items.push({ label: "Le texte de la page « À propos »", hash: "#about" });

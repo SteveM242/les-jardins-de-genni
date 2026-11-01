@@ -72,6 +72,7 @@ const slides = computed(() => (siteContent.state.gallery.length > 0 ? siteConten
         <div class="follow">
           <p class="follow-title">Suivez Genni au quotidien</p>
           <SocialLinks />
+          <RouterLink to="/reseaux" class="follow-more">Tous les réseaux →</RouterLink>
         </div>
       </div>
     </section>
@@ -164,6 +165,12 @@ const slides = computed(() => (siteContent.state.gallery.length > 0 ? siteConten
   margin: 0;
   font-family: "Fraunces", Georgia, serif;
   font-size: 18px;
+}
+
+.follow-more {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--clay-dark);
 }
 
 /* Aucun réseau renseigné : on n'affiche pas un titre sans liens. */

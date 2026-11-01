@@ -69,11 +69,11 @@ const sectionSaving = reactive({});
 
 const socials = reactive({ instagram: "", tiktok: "", snapchat: "", facebook: "", youtube: "" });
 const SOCIAL_NETWORKS = [
-  { key: "instagram", label: "Instagram", placeholder: "https://www.instagram.com/votre_compte" },
-  { key: "tiktok", label: "TikTok", placeholder: "https://www.tiktok.com/@votre_compte" },
-  { key: "snapchat", label: "Snapchat", placeholder: "https://www.snapchat.com/add/votre_compte" },
-  { key: "facebook", label: "Facebook", placeholder: "https://www.facebook.com/votre_page" },
-  { key: "youtube", label: "YouTube", placeholder: "https://www.youtube.com/@votre_chaine" }
+  { key: "instagram", label: "Instagram", placeholder: "ex: @votre_compte" },
+  { key: "tiktok", label: "TikTok", placeholder: "ex: @votre_compte" },
+  { key: "snapchat", label: "Snapchat", placeholder: "ex: votre_pseudo" },
+  { key: "facebook", label: "Facebook", placeholder: "ex: le nom de votre page" },
+  { key: "youtube", label: "YouTube", placeholder: "ex: @votre_chaine" }
 ];
 const socialsError = ref("");
 const socialsSaving = ref(false);
@@ -230,10 +230,18 @@ onMounted(load);
 
       <form id="socials" class="card" @submit.prevent="saveSocials">
         <h2>Mes réseaux sociaux</h2>
-        <p class="hint">Collez l'adresse de votre page. Laissez vide un réseau que vous n'utilisez pas : il ne sera pas affiché.</p>
+        <p class="hint">
+          Écrivez simplement votre pseudo (ex : <strong>@genni</strong>) ou collez l'adresse de votre page. Après l'enregistrement, cliquez sur
+          « Tester » pour vérifier que le lien ouvre le bon profil. Un réseau laissé vide n'est pas affiché ; WhatsApp apparaît tout seul dès que
+          votre numéro est renseigné plus haut.
+          Vos visiteurs retrouvent tout sur la page <RouterLink to="/reseaux">Suivre Genni</RouterLink>.
+        </p>
         <div class="socials-grid">
           <label v-for="network in SOCIAL_NETWORKS" :key="network.key">
-            {{ network.label }}
+            <span class="label-row">
+              {{ network.label }}
+              <a v-if="socials[network.key] && socials[network.key].startsWith('https://')" :href="socials[network.key]" target="_blank" rel="noopener noreferrer" class="test-link">Tester le lien ↗</a>
+            </span>
             <input v-model.trim="socials[network.key]" type="url" inputmode="url" :placeholder="network.placeholder" autocomplete="off" />
           </label>
         </div>
@@ -361,6 +369,18 @@ h2 {
   gap: 10px;
   font-size: 14px;
   color: var(--text);
+}
+
+.label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.test-link {
+  color: var(--clay-dark);
+  font-weight: 700;
 }
 
 .socials-grid {
