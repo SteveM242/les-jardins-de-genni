@@ -10,15 +10,71 @@ import { useSiteContent } from "../../stores/siteContent.js";
 const toast = useToast();
 const content = useSiteContent();
 
-const NETWORKS = [
+// Sections de texte : un formulaire par section, enregistré indépendamment.
+const SECTIONS = [
+  {
+    name: "announcement",
+    title: "Annonce du moment",
+    hint: "Un bandeau jaune tout en haut du site, par exemple « Commandes ouvertes jusqu'à jeudi 18h, retrait vendredi ». Les visiteurs peuvent le fermer.",
+    fields: [
+      { key: "text", label: "Message", type: "text", placeholder: "ex: Commandes ouvertes jusqu'à jeudi 18h, retrait vendredi", maxlength: 200 },
+      { key: "active", label: "Afficher l'annonce sur le site", type: "checkbox" }
+    ]
+  },
+  {
+    name: "contact",
+    title: "Coordonnées",
+    hint: "Affichées sur la page Contact et en bas du site. Tant que le numéro WhatsApp est vide, aucun bouton WhatsApp n'apparaît ; même chose pour l'email.",
+    fields: [
+      { key: "whatsapp", label: "Numéro WhatsApp", type: "tel", placeholder: "ex: 0696 12 34 56" },
+      { key: "email", label: "Email de contact", type: "email", placeholder: "ex: contact@lesjardinsdegenni.fr" },
+      { key: "location", label: "Commune / zone", type: "text", placeholder: "ex: Ducos, Martinique", maxlength: 120 },
+      { key: "hours", label: "Horaires", type: "text", placeholder: "ex: Du lundi au vendredi, 8h–18h", maxlength: 200 }
+    ]
+  },
+  {
+    name: "about",
+    title: "Page « À propos »",
+    hint: "Votre histoire, votre façon de cultiver. Laissez une ligne vide entre deux paragraphes. Vide = texte par défaut.",
+    fields: [{ key: "text", label: "Texte de présentation", type: "textarea", rows: 8, maxlength: 4000 }]
+  },
+  {
+    name: "checkout",
+    title: "Retrait & livraison",
+    hint: "Ces informations sont rappelées au client au moment de choisir son mode de réception.",
+    fields: [
+      { key: "pickupInfo", label: "Retrait", type: "textarea", rows: 3, placeholder: "ex: Retrait à Ducos le vendredi de 16h à 19h.", maxlength: 400 },
+      { key: "deliveryInfo", label: "Livraison", type: "textarea", rows: 3, placeholder: "ex: Livraison à Fort-de-France et alentours, le samedi matin.", maxlength: 400 }
+    ]
+  },
+  {
+    name: "legal",
+    title: "Mentions légales",
+    hint: "Obligatoires pour un site qui vend. Elles alimentent la page « Mentions légales ». Renseignez ce qui concerne votre activité.",
+    fields: [
+      { key: "companyName", label: "Nom de l'exploitation / entreprise", type: "text", maxlength: 120 },
+      { key: "legalForm", label: "Statut", type: "text", placeholder: "ex: Entreprise individuelle, EARL…", maxlength: 60 },
+      { key: "siret", label: "SIRET (14 chiffres)", type: "text", maxlength: 20 },
+      { key: "address", label: "Adresse", type: "text", maxlength: 300 },
+      { key: "publisher", label: "Directeur·rice de la publication", type: "text", maxlength: 120 },
+      { key: "phone", label: "Téléphone", type: "tel", maxlength: 40 },
+      { key: "mediator", label: "Médiateur de la consommation (nom et coordonnées)", type: "textarea", rows: 2, maxlength: 300 }
+    ]
+  }
+];
+
+const forms = reactive(Object.fromEntries(SECTIONS.map((section) => [section.name, {}])));
+const sectionErrors = reactive({});
+const sectionSaving = reactive({});
+
+const socials = reactive({ instagram: "", tiktok: "", snapchat: "", facebook: "", youtube: "" });
+const SOCIAL_NETWORKS = [
   { key: "instagram", label: "Instagram", placeholder: "https://www.instagram.com/votre_compte" },
   { key: "tiktok", label: "TikTok", placeholder: "https://www.tiktok.com/@votre_compte" },
   { key: "snapchat", label: "Snapchat", placeholder: "https://www.snapchat.com/add/votre_compte" },
   { key: "facebook", label: "Facebook", placeholder: "https://www.facebook.com/votre_page" },
   { key: "youtube", label: "YouTube", placeholder: "https://www.youtube.com/@votre_chaine" }
 ];
-
-const socials = reactive({ instagram: "", tiktok: "", snapchat: "", facebook: "", youtube: "" });
 const socialsError = ref("");
 const socialsSaving = ref(false);
 
@@ -33,15 +89,30 @@ const fileInput = ref(null);
 async function load() {
   loading.value = true;
   loadError.value = "";
-  const [socialsRes, galleryRes] = await Promise.all([api("/api/admin/settings/socials"), api("/api/admin/gallery")]);
-  if (!socialsRes.ok || !galleryRes.ok) {
-    loadError.value = socialsRes.error || galleryRes.error;
+  const [settingsRes, galleryRes] = await Promise.all([api("/api/admin/settings/all"), api("/api/admin/gallery")]);
+  if (!settingsRes.ok || !galleryRes.ok) {
+    loadError.value = settingsRes.error || galleryRes.error;
   } else {
-    Object.assign(socials, socialsRes.data.socials);
+    for (const section of SECTIONS) Object.assign(forms[section.name], settingsRes.data[section.name]);
+    Object.assign(socials, settingsRes.data.socials);
     images.value = galleryRes.data.images;
     maxImages.value = galleryRes.data.max;
   }
   loading.value = false;
+}
+
+async function saveSection(section) {
+  sectionErrors[section.name] = "";
+  sectionSaving[section.name] = true;
+  const res = await api(`/api/admin/settings/sections/${section.name}`, { method: "PUT", body: { value: forms[section.name] } });
+  sectionSaving[section.name] = false;
+  if (!res.ok) {
+    sectionErrors[section.name] = res.error;
+    return;
+  }
+  Object.assign(forms[section.name], res.data.value);
+  await content.load({ force: true });
+  toast.success("Enregistré : visible tout de suite sur le site.");
 }
 
 async function saveSocials() {
@@ -122,20 +193,46 @@ onMounted(load);
 
 <template>
   <AdminNav>
-    <h1>Galerie &amp; réseaux sociaux</h1>
+    <h1>Contenu du site</h1>
     <p class="hint">
-      Ce que vos client·e·s voient sur l'accueil : le diaporama de photos et les liens pour vous suivre.
+      Tout ce que vos client·e·s lisent et voient, modifiable ici sans passer par un développeur : annonce, coordonnées,
+      présentation, photos, réseaux sociaux, mentions légales.
     </p>
 
     <p v-if="loading">Chargement…</p>
     <LoadError v-else-if="loadError" :message="loadError" @retry="load" />
 
     <template v-else>
-      <form class="card" @submit.prevent="saveSocials">
+      <form v-for="section in SECTIONS" :id="section.name" :key="section.name" class="card" @submit.prevent="saveSection(section)">
+        <h2>{{ section.title }}</h2>
+        <p class="hint">{{ section.hint }}</p>
+        <div class="fields-grid">
+          <template v-for="field in section.fields" :key="field.key">
+            <label v-if="field.type === 'checkbox'" class="check-field">
+              <input v-model="forms[section.name][field.key]" type="checkbox" />
+              {{ field.label }}
+            </label>
+            <label v-else-if="field.type === 'textarea'" class="wide">
+              {{ field.label }}
+              <textarea v-model="forms[section.name][field.key]" :rows="field.rows || 3" :maxlength="field.maxlength" :placeholder="field.placeholder"></textarea>
+            </label>
+            <label v-else>
+              {{ field.label }}
+              <input v-model.trim="forms[section.name][field.key]" :type="field.type" :maxlength="field.maxlength" :placeholder="field.placeholder" autocomplete="off" />
+            </label>
+          </template>
+        </div>
+        <p v-if="sectionErrors[section.name]" class="form-error" role="alert">{{ sectionErrors[section.name] }}</p>
+        <button type="submit" class="btn primary" :disabled="sectionSaving[section.name]">
+          {{ sectionSaving[section.name] ? "Enregistrement…" : "Enregistrer" }}
+        </button>
+      </form>
+
+      <form id="socials" class="card" @submit.prevent="saveSocials">
         <h2>Mes réseaux sociaux</h2>
         <p class="hint">Collez l'adresse de votre page. Laissez vide un réseau que vous n'utilisez pas : il ne sera pas affiché.</p>
         <div class="socials-grid">
-          <label v-for="network in NETWORKS" :key="network.key">
+          <label v-for="network in SOCIAL_NETWORKS" :key="network.key">
             {{ network.label }}
             <input v-model.trim="socials[network.key]" type="url" inputmode="url" :placeholder="network.placeholder" autocomplete="off" />
           </label>
@@ -149,7 +246,7 @@ onMounted(load);
       <section class="card" aria-label="Galerie photos">
         <div class="gallery-head">
           <div>
-            <h2>Galerie photos de l'accueil</h2>
+            <h2 id="gallery">Galerie photos de l'accueil</h2>
             <p class="hint">
               {{ images.length }} / {{ maxImages }} photos. Elles défilent dans cet ordre. Sans photo ici, le site affiche deux
               photos par défaut.
@@ -227,6 +324,43 @@ h2 {
 
 .card .hint {
   margin: 0;
+}
+
+.fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.fields-grid label,
+.check-field {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.fields-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.fields-grid input:not([type="checkbox"]),
+.fields-grid textarea {
+  font: inherit;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  color: var(--text);
+  resize: vertical;
+}
+
+.fields-grid .check-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text);
 }
 
 .socials-grid {

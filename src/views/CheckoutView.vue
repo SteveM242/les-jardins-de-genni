@@ -4,7 +4,7 @@ import { RouterLink, useRoute, useRouter } from "vue-router";
 import { api } from "../api.js";
 import { useCart } from "../stores/cart.js";
 import { useAuth } from "../stores/auth.js";
-import { whatsappCartLink, whatsappOrderConfirmLink } from "../data/site.js";
+import { site, whatsappCartLink, whatsappOrderConfirmLink } from "../data/site.js";
 import CartLineContents from "../components/CartLineContents.vue";
 
 const cart = useCart();
@@ -245,6 +245,7 @@ async function submitOrder() {
         </p>
         <div class="success-actions">
           <a
+            v-if="site.whatsappNumber"
             :href="whatsappOrderConfirmLink(lastOrder?.orderId, lastOrder?.customer?.name)"
             target="_blank"
             rel="noreferrer"
@@ -368,7 +369,7 @@ async function submitOrder() {
 
               <button type="button" class="btn primary continue-btn" @click="goToStep(2)">Continuer →</button>
 
-              <a :href="whatsappCartLink(cart.items.value)" target="_blank" rel="noreferrer" class="whatsapp-alt">
+              <a v-if="site.whatsappNumber" :href="whatsappCartLink(cart.items.value)" target="_blank" rel="noreferrer" class="whatsapp-alt">
                 Préférer commander ce panier sur WhatsApp
               </a>
             </div>

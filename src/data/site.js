@@ -1,54 +1,55 @@
-// Coordonnées et textes à remplacer par les vraies informations de Genni
-// avant mise en ligne — tout ce qui suit est un contenu de démonstration.
+import { reactive } from "vue";
 
-export const site = {
+// Informations du site. Les coordonnées (WhatsApp, email, commune, horaires) sont saisies par Genni dans
+// l'espace pro (« Contenu du site ») et injectées ici au chargement (voir stores/siteContent.js) :
+// tant qu'elles ne sont pas renseignées, aucun faux numéro ni faux email n'est affiché.
+export const site = reactive({
   brandName: "Les Jardins de Genni",
   tagline: "Fruits et légumes péyi, cueillis avec soin.",
   intro:
     "Genni cultive ses fruits et légumes en Martinique, sans précipitation, au rythme des saisons. Chaque panier est préparé à la main, avec ce qui est bon à cueillir cette semaine-là.",
 
-  // ⚠️ Numéro de démonstration — à remplacer par le vrai numéro WhatsApp de Genni.
-  whatsappNumber: "596696000000",
-
-  // ⚠️ Adresse/commune de démonstration — à confirmer avec Genni.
+  // Renseignés depuis les réglages (vides = non configurés)
+  whatsappNumber: "",
+  email: "",
   location: "Martinique",
+  hours: "",
 
-  email: "contact@lesjardinsdegenni.example",
+  // Les étapes s'adaptent : pas de mention de WhatsApp tant que le numéro n'est pas configuré.
+  get howItWorks() {
+    return [
+      {
+        title: "1. Choisissez votre panier",
+        text: "Parcourez les paniers disponibles cette semaine et leur contenu détaillé, ou composez le vôtre."
+      },
+      {
+        title: this.whatsappNumber ? "2. Commandez en ligne ou sur WhatsApp" : "2. Commandez en ligne",
+        text: this.whatsappNumber
+          ? "Remplissez le formulaire de commande, ou envoyez un message pré-rempli sur WhatsApp si vous préférez."
+          : "Remplissez le formulaire de commande : vous relisez tout avant de confirmer."
+      },
+      {
+        title: "3. Récupérez ou faites-vous livrer",
+        text: "Genni vous confirme le jour et le lieu de retrait ou de livraison."
+      }
+    ];
+  }
+});
 
-  socials: {
-    instagram: "",
-    facebook: ""
-  },
-
-  howItWorks: [
-    {
-      title: "1. Choisissez votre panier",
-      text: "Parcourez les paniers disponibles cette semaine et leur contenu détaillé."
-    },
-    {
-      title: "2. Commandez en ligne ou sur WhatsApp",
-      text: "Remplissez le formulaire de commande, ou envoyez un message pré-rempli sur WhatsApp si vous préférez."
-    },
-    {
-      title: "3. Récupérez ou faites-vous livrer",
-      text: "Genni vous confirme le jour et le lieu de retrait ou de livraison."
-    }
-  ]
-};
+function whatsappLink(message) {
+  return `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(message)}`;
+}
 
 export function whatsappOrderLink(panierName) {
-  const message = `Bonjour Genni, je souhaite commander le ${panierName}. Est-il disponible cette semaine ?`;
-  return `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(message)}`;
+  return whatsappLink(`Bonjour Genni, je souhaite commander le ${panierName}. Est-il disponible cette semaine ?`);
 }
 
 export function whatsappGeneralLink() {
-  const message = "Bonjour Genni, j'ai une question sur vos paniers.";
-  return `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(message)}`;
+  return whatsappLink("Bonjour Genni, j'ai une question sur vos paniers.");
 }
 
 export function whatsappOrderConfirmLink(orderNumber, customerName) {
-  const message = `Bonjour Genni, c'est ${customerName || "un·e client·e"}. Je viens de passer la commande ${orderNumber} sur le site.`;
-  return `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(message)}`;
+  return whatsappLink(`Bonjour Genni, c'est ${customerName || "un·e client·e"}. Je viens de passer la commande ${orderNumber} sur le site.`);
 }
 
 // Lien WhatsApp vers un·e client·e à partir du téléphone saisi à la commande.
@@ -62,6 +63,5 @@ export function customerWhatsappLink(phone, message) {
 
 export function whatsappCartLink(items) {
   const lines = items.map((item) => `- ${item.qty} x ${item.name}`);
-  const message = `Bonjour Genni, je souhaite commander :\n${lines.join("\n")}\n\nEst-ce disponible cette semaine ?`;
-  return `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(message)}`;
+  return whatsappLink(`Bonjour Genni, je souhaite commander :\n${lines.join("\n")}\n\nEst-ce disponible cette semaine ?`);
 }

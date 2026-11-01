@@ -1,7 +1,7 @@
 {
   "/": {
     "title": "Fruits & légumes frais de Martinique",
-    "description": "Les Jardins de Genni — fruits et légumes frais cultivés avec soin en Martinique. Paniers péyi à commander en ligne ou par WhatsApp."
+    "description": "Les Jardins de Genni — fruits et légumes frais cultivés avec soin en Martinique. Paniers péyi à commander en ligne."
   },
   "/produits": {
     "title": "Les articles à la carte",
@@ -13,7 +13,7 @@
   },
   "/comment-ca-marche": {
     "title": "Comment ça marche",
-    "description": "Choisissez votre panier, commandez en ligne ou sur WhatsApp, puis récupérez-le ou faites-vous livrer."
+    "description": "Choisissez ou composez votre panier, commandez en ligne, puis récupérez-le ou faites-vous livrer."
   },
   "/a-propos": {
     "title": "À propos de Genni",
@@ -21,7 +21,7 @@
   },
   "/contact": {
     "title": "Contact",
-    "description": "Une question sur les paniers ou une commande ? Écrivez à Genni sur WhatsApp ou par email."
+    "description": "Une question sur les paniers ou une commande ? Contactez Genni."
   },
   "/commande": {
     "title": "Panier & commande",

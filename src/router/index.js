@@ -46,7 +46,8 @@ const router = createRouter({
     { path: "/admin", component: AdminDashboardView, meta: { bare: true, requiresAdmin: true } },
     { path: "/admin/articles", component: AdminProductsView, meta: { bare: true, requiresAdmin: true } },
     { path: "/admin/paniers", component: AdminBasketsView, meta: { bare: true, requiresAdmin: true } },
-    { path: "/admin/galerie", component: AdminSiteView, meta: { bare: true, requiresAdmin: true } },
+    { path: "/admin/contenu", component: AdminSiteView, meta: { bare: true, requiresAdmin: true } },
+    { path: "/admin/galerie", redirect: "/admin/contenu" },
     { path: "/admin/promos", component: AdminDiscountsView, meta: { bare: true, requiresAdmin: true } },
     { path: "/:pathMatch(.*)*", component: NotFoundView }
   ],

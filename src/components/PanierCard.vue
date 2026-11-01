@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from "vue";
-import { whatsappOrderLink } from "../data/site.js";
+import { site, whatsappOrderLink } from "../data/site.js";
 import { useCart } from "../stores/cart.js";
 
 const props = defineProps({
@@ -59,6 +59,7 @@ function handleAdd() {
             <span>le panier</span>
           </p>
           <a
+            v-if="site.whatsappNumber"
             :href="whatsappOrderLink(panier.name)"
             target="_blank"
             rel="noreferrer"

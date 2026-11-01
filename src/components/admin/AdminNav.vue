@@ -27,7 +27,7 @@ async function logoutEverywhere() {
           <RouterLink to="/admin/articles">Articles</RouterLink>
           <RouterLink to="/admin/paniers">Paniers</RouterLink>
           <RouterLink to="/admin/promos">Codes promo</RouterLink>
-          <RouterLink to="/admin/galerie">Galerie &amp; réseaux</RouterLink>
+          <RouterLink to="/admin/contenu">Contenu du site</RouterLink>
         </nav>
         <button type="button" class="link-logout" @click="logoutEverywhere">Déconnecter tous les appareils</button>
         <button type="button" class="btn ghost compact" @click="logout">Déconnexion</button>

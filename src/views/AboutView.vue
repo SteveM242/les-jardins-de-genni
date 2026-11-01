@@ -1,6 +1,17 @@
 <script setup>
 import { RouterLink } from "vue-router";
+import { computed } from "vue";
 import { site } from "../data/site.js";
+import { useSiteContent } from "../stores/siteContent.js";
+
+// Texte rédigé par Genni (paragraphes séparés par une ligne vide) ; sinon le texte par défaut ci-dessous.
+const content = useSiteContent();
+const customParagraphs = computed(() =>
+  content.state.about.text
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+);
 </script>
 
 <template>
@@ -15,21 +26,21 @@ import { site } from "../data/site.js";
         <h1>Genni, {{ site.location }}</h1>
         <p class="lead">{{ site.intro }}</p>
 
-        <p>
-          {{ site.brandName }}, c'est avant tout une histoire de patience : laisser le temps aux
-          fruits et légumes de mûrir avant de les proposer. Pas de forçage, pas de stock permanent —
-          chaque panier reflète ce qui est réellement prêt à être récolté la semaine de la commande.
-        </p>
+        <template v-if="customParagraphs.length">
+          <p v-for="(paragraph, index) in customParagraphs" :key="index" class="custom-paragraph">{{ paragraph }}</p>
+        </template>
+        <template v-else>
+          <p>
+            {{ site.brandName }}, c'est avant tout une histoire de patience : laisser le temps aux
+            fruits et légumes de mûrir avant de les proposer. Pas de forçage, pas de stock permanent —
+            chaque panier reflète ce qui est réellement prêt à être récolté la semaine de la commande.
+          </p>
 
-        <p>
-          Les produits sont cultivés sur l'exploitation de Genni, récoltés le jour même de la
-          préparation des paniers, pour une fraîcheur maximale entre le jardin et votre table.
-        </p>
-
-        <p class="note">
-          ⚠️ Texte de présentation provisoire — à affiner avec Genni (parcours, méthode de culture,
-          valeurs, photos de l'exploitation).
-        </p>
+          <p>
+            Les produits sont cultivés sur l'exploitation de Genni, récoltés le jour même de la
+            préparation des paniers, pour une fraîcheur maximale entre le jardin et votre table.
+          </p>
+        </template>
 
         <RouterLink to="/#paniers" class="btn primary">Découvrir les paniers</RouterLink>
       </div>

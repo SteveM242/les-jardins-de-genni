@@ -9,6 +9,22 @@ import { useToast } from "../../stores/toast.js";
 
 const toast = useToast();
 
+// « À compléter » : ce qu'il manque avant d'annoncer le site (coordonnées, présentation, mentions légales…).
+const todo = ref([]);
+
+async function loadChecklist() {
+  const res = await api("/api/admin/settings/all");
+  if (!res.ok) return;
+  const { contact, about, legal, checkout } = res.data;
+  const items = [];
+  if (!contact.whatsapp) items.push({ label: "Votre numéro WhatsApp", hash: "#contact" });
+  if (!contact.email) items.push({ label: "Votre email de contact", hash: "#contact" });
+  if (!about.text) items.push({ label: "Le texte de la page « À propos »", hash: "#about" });
+  if (!checkout.pickupInfo && !checkout.deliveryInfo) items.push({ label: "Les infos de retrait et de livraison", hash: "#checkout" });
+  if (!legal.companyName || !legal.address) items.push({ label: "Les mentions légales (nom, adresse, SIRET)", hash: "#legal" });
+  todo.value = items;
+}
+
 const orders = ref([]);
 const counts = ref({ all: 0 });
 const total = ref(0);
@@ -102,6 +118,7 @@ watch(search, () => {
 // Les nouvelles commandes apparaissent seules : rafraîchissement discret toutes les minutes.
 let refreshTimer = null;
 onMounted(() => {
+  loadChecklist();
   loadOrders();
   refreshTimer = setInterval(() => {
     if (document.visibilityState === "visible") loadOrders({ silent: true });
@@ -117,6 +134,15 @@ onBeforeUnmount(() => {
 <template>
   <AdminNav>
     <h1>Commandes</h1>
+
+    <aside v-if="todo.length" class="todo" aria-label="À compléter">
+      <strong>À compléter avant d'annoncer le site :</strong>
+      <ul>
+        <li v-for="item in todo" :key="item.label">
+          <RouterLink :to="{ path: '/admin/contenu', hash: item.hash }">{{ item.label }}</RouterLink>
+        </li>
+      </ul>
+    </aside>
 
     <label class="search-field">
       <span class="sr-only">Rechercher une commande</span>
@@ -234,6 +260,26 @@ onBeforeUnmount(() => {
 h1 {
   font-size: 24px;
   margin: 0 0 20px;
+}
+
+.todo {
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid #f0d06a;
+  background: #fff6d6;
+  color: #664400;
+  font-size: 14px;
+}
+
+.todo ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.todo a {
+  color: inherit;
+  font-weight: 600;
 }
 
 .sr-only {

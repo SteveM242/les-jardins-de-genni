@@ -9,18 +9,22 @@ import SocialLinks from "../components/SocialLinks.vue";
       <p class="eyebrow">Contact</p>
       <h1>Une question ? Écrivez à Genni</h1>
       <p class="intro">
-        Pour toute question sur les paniers, la disponibilité ou une commande en cours, le plus
-        rapide est WhatsApp. Vous pouvez aussi passer par email.
+        Pour toute question sur les paniers, la disponibilité ou une commande en cours,
+        {{ site.whatsappNumber ? "le plus rapide est WhatsApp. Vous pouvez aussi passer par email." : "écrivez-nous." }}
+      </p>
+
+      <p v-if="!site.whatsappNumber && !site.email" class="intro">
+        Les coordonnées de contact seront bientôt disponibles. En attendant, vous pouvez passer commande directement sur le site.
       </p>
 
       <div class="contact-grid">
-        <a :href="whatsappGeneralLink()" target="_blank" rel="noreferrer" class="contact-card whatsapp">
+        <a v-if="site.whatsappNumber" :href="whatsappGeneralLink()" target="_blank" rel="noreferrer" class="contact-card whatsapp">
           <h2>WhatsApp</h2>
           <p>Réponse la plus rapide, aux heures d'ouverture.</p>
           <span class="btn whatsapp">Ouvrir WhatsApp</span>
         </a>
 
-        <a :href="`mailto:${site.email}`" class="contact-card">
+        <a v-if="site.email" :href="`mailto:${site.email}`" class="contact-card">
           <h2>Email</h2>
           <p>{{ site.email }}</p>
           <span class="btn ghost">Envoyer un email</span>
@@ -29,6 +33,7 @@ import SocialLinks from "../components/SocialLinks.vue";
         <div class="contact-card static">
           <h2>Zone de retrait / livraison</h2>
           <p>{{ site.location }}</p>
+          <p v-if="site.hours">{{ site.hours }}</p>
         </div>
       </div>
 
@@ -38,10 +43,6 @@ import SocialLinks from "../components/SocialLinks.vue";
         <SocialLinks />
       </section>
 
-      <p class="note">
-        ⚠️ Coordonnées provisoires — à remplacer par les vraies informations de contact de Genni
-        (numéro WhatsApp, commune exacte, horaires).
-      </p>
     </div>
   </div>
 </template>

@@ -4,7 +4,7 @@ import { setPageTitle } from "../pageMeta.js";
 import { useToast } from "../stores/toast.js";
 import { useRoute, RouterLink, useRouter } from "vue-router";
 import { useCatalog } from "../stores/catalog.js";
-import { whatsappOrderLink } from "../data/site.js";
+import { site, whatsappOrderLink } from "../data/site.js";
 import { useCart } from "../stores/cart.js";
 import LoadError from "../components/LoadError.vue";
 
@@ -56,7 +56,7 @@ function handleAdd(goToCart) {
             <button type="button" class="btn ghost" @click="handleAdd(false)">
               Ajouter et continuer mes achats
             </button>
-            <a :href="whatsappOrderLink(panier.name)" target="_blank" rel="noreferrer" class="btn whatsapp">
+            <a v-if="site.whatsappNumber" :href="whatsappOrderLink(panier.name)" target="_blank" rel="noreferrer" class="btn whatsapp">
               Commander sur WhatsApp
             </a>
           </div>

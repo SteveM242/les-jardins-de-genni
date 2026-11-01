@@ -9,7 +9,7 @@ import GalleryCarousel from "../components/GalleryCarousel.vue";
 import SocialLinks from "../components/SocialLinks.vue";
 import { useSiteContent } from "../stores/siteContent.js";
 
-const previewSteps = site.howItWorks.slice(0, 3);
+const previewSteps = computed(() => site.howItWorks.slice(0, 3));
 const catalog = useCatalog();
 onMounted(catalog.load);
 

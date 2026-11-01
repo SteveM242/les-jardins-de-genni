@@ -23,9 +23,10 @@ import SocialLinks from "./SocialLinks.vue";
 
       <div class="footer-contact">
         <p class="eyebrow">Contact</p>
-        <a :href="whatsappGeneralLink()" target="_blank" rel="noreferrer">WhatsApp</a>
-        <a :href="`mailto:${site.email}`">{{ site.email }}</a>
+        <a v-if="site.whatsappNumber" :href="whatsappGeneralLink()" target="_blank" rel="noreferrer">WhatsApp</a>
+        <a v-if="site.email" :href="`mailto:${site.email}`">{{ site.email }}</a>
         <span>{{ site.location }}</span>
+        <span v-if="site.hours">{{ site.hours }}</span>
         <SocialLinks variant="footer" />
       </div>
     </div>
