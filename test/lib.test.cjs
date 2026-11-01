@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const { slugify, cleanText, escapeLike } = require("../lib/text.cjs");
 const { matchesImageSignature, parseDataUri, imageUrl, withImageUrl } = require("../lib/images.cjs");
 const { STATUS_MESSAGES } = require("../lib/mailer.cjs");
+const { normalizePhone, samePhone } = require("../lib/phone.cjs");
 
 test("slugify retire accents et caractères spéciaux", () => {
   assert.equal(slugify("Panier Péyi Classique !"), "panier-peyi-classique");
@@ -59,4 +60,14 @@ test("un message de statut existe pour chaque statut notifié", () => {
     assert.ok(STATUS_MESSAGES[status].subject && STATUS_MESSAGES[status].body);
   }
   assert.equal(STATUS_MESSAGES.nouvelle, undefined);
+});
+
+test("normalizePhone / samePhone : formats français et indicatif Martinique équivalents", () => {
+  assert.equal(normalizePhone("0696 12 34 56"), "0696123456");
+  assert.equal(normalizePhone("+596 696 12 34 56"), "0696123456");
+  assert.equal(normalizePhone("00596696123456"), "0696123456");
+  assert.ok(samePhone("06.96.12.34.56", "+596696123456"));
+  assert.ok(!samePhone("0696123456", "0696123457"));
+  assert.ok(!samePhone("", ""), "deux numéros vides ne sont pas identiques");
+  assert.ok(!samePhone("1234", "1234"), "trop court pour être un vrai téléphone");
 });

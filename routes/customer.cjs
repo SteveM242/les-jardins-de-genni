@@ -5,7 +5,9 @@ const { query, withTransaction } = require("../db.cjs");
 const { startSession, clearAuthCookie, requireRole, attachCustomer } = require("../auth.cjs");
 const rateLimits = require("../lib/rateLimits.cjs");
 const { cleanText } = require("../lib/text.cjs");
-const { sendPasswordResetEmail } = require("../lib/mailer.cjs");
+const { isConfigured, sendPasswordResetEmail, sendVerificationEmail } = require("../lib/mailer.cjs");
+const { linkGuestOrdersByEmail } = require("../lib/orderLinking.cjs");
+const { samePhone } = require("../lib/phone.cjs");
 const { passwordMatches } = require("../lib/passwords.cjs");
 const { baseUrlFor } = require("../lib/urls.cjs");
 
@@ -26,7 +28,27 @@ function sha256(value) {
 }
 
 function publicCustomer(row) {
-  return { id: row.id, name: row.name, email: row.email, phone: row.phone, address: row.address };
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    phone: row.phone,
+    address: row.address,
+    emailVerified: Boolean(row.email_verified_at)
+  };
+}
+
+// Envoie un lien de vérification d'email (valable 48 h, à usage unique, stocké haché).
+async function issueEmailVerification(req, customer) {
+  const token = crypto.randomBytes(32).toString("hex");
+  await query(
+    "INSERT INTO email_verifications (customer_id, email, token_hash, expires_at) VALUES ($1, $2, $3, now() + interval '48 hours')",
+    [customer.id, customer.email, sha256(token)]
+  );
+  const url = `${baseUrlFor(req)}/compte/verification?token=${token}`;
+  sendVerificationEmail({ to: customer.email, name: customer.name, url }).catch((err) =>
+    console.error("[auth] échec envoi email de vérification:", err.message)
+  );
 }
 
 router.post("/auth/signup", rateLimits.signup, async (req, res) => {
@@ -49,12 +71,13 @@ router.post("/auth/signup", rateLimits.signup, async (req, res) => {
 
   const passwordHash = await bcrypt.hash(password, 10);
   const { rows } = await query(
-    "INSERT INTO customers (name, email, phone, password_hash) VALUES ($1,$2,$3,$4) RETURNING id, name, email, phone, address, token_version",
+    "INSERT INTO customers (name, email, phone, password_hash) VALUES ($1,$2,$3,$4) RETURNING id, name, email, phone, address, token_version, email_verified_at",
     [name, email, phone, passwordHash]
   );
 
   startSession(res, "customer", rows[0]);
-  res.json({ ok: true, customer: publicCustomer(rows[0]) });
+  await issueEmailVerification(req, rows[0]);
+  res.json({ ok: true, customer: publicCustomer(rows[0]), verificationEmailSent: isConfigured() });
 });
 
 router.post("/auth/login", rateLimits.login, async (req, res) => {
@@ -128,9 +151,11 @@ router.post("/auth/reset", rateLimits.reset, async (req, res) => {
   const customer = await withTransaction(async (client) => {
     // token_version + 1 déconnecte tous les appareils déjà connectés avec l'ancien mot de passe.
     const { rows: updated } = await client.query(
-      "UPDATE customers SET password_hash = $1, token_version = token_version + 1 WHERE id = $2 RETURNING *",
+      // Cliquer sur le lien reçu par email prouve aussi que l'adresse est bien la sienne.
+      "UPDATE customers SET password_hash = $1, token_version = token_version + 1, email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $2 RETURNING *",
       [passwordHash, rows[0].customer_id]
     );
+    await linkGuestOrdersByEmail(client, updated[0].id, updated[0].email);
     await client.query("UPDATE password_resets SET used_at = now() WHERE customer_id = $1 AND used_at IS NULL", [
       rows[0].customer_id
     ]);
@@ -141,7 +166,60 @@ router.post("/auth/reset", rateLimits.reset, async (req, res) => {
   res.json({ ok: true, customer: publicCustomer(customer) });
 });
 
+// Vérification de l'email : prouve que le client possède la boîte mail, puis rattache les commandes
+// passées sans compte avec cette adresse (impossible avant : n'importe qui pourrait saisir l'email d'autrui).
+router.post("/auth/verify", rateLimits.reset, async (req, res) => {
+  const token = String(req.body.token || "");
+  const { rows } = await query(
+    "SELECT id, customer_id, email FROM email_verifications WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()",
+    [sha256(token)]
+  );
+  if (!rows[0]) {
+    return res.status(400).json({ ok: false, error: "Ce lien est invalide ou a expiré. Demandez-en un nouveau depuis votre compte." });
+  }
+
+  const linked = await withTransaction(async (client) => {
+    const { rows: updated } = await client.query(
+      "UPDATE customers SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1 AND email = $2 RETURNING id, email",
+      [rows[0].customer_id, rows[0].email]
+    );
+    await client.query("UPDATE email_verifications SET used_at = now() WHERE id = $1", [rows[0].id]);
+    return updated[0] ? linkGuestOrdersByEmail(client, updated[0].id, updated[0].email) : 0;
+  });
+  res.json({ ok: true, linked });
+});
+
 // ---------- Espace client connecté ----------
+
+router.post("/account/resend-verification", rateLimits.forgot, requireRole("customer"), async (req, res) => {
+  const { rows } = await query("SELECT * FROM customers WHERE id = $1", [req.auth.sub]);
+  const customer = rows[0];
+  if (!customer) return res.status(404).json({ ok: false, error: "Compte introuvable." });
+  if (customer.email_verified_at) return res.json({ ok: true, alreadyVerified: true });
+  await issueEmailVerification(req, customer);
+  res.json({ ok: true, emailSent: isConfigured() });
+});
+
+// Retrouver une commande passée sans compte (ou sans email) : il faut connaître le numéro de commande
+// ET le téléphone saisi à ce moment-là. Même réponse que la commande n'existe pas, soit déjà rattachée ou ne corresponde pas.
+router.post("/account/claim-order", rateLimits.reset, requireRole("customer"), async (req, res) => {
+  const orderNumber = cleanText(req.body.orderNumber, 20).toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const { rows } = await query("SELECT id, customer_id, phone, order_number FROM orders WHERE order_number = $1", [orderNumber]);
+  const order = rows[0];
+
+  if (order && order.customer_id === req.auth.sub) {
+    return res.json({ ok: true, alreadyYours: true, orderNumber: order.order_number });
+  }
+  if (!order || order.customer_id || !samePhone(order.phone, req.body.phone)) {
+    return res.status(404).json({
+      ok: false,
+      error: "Aucune commande ne correspond à ce numéro et ce téléphone, ou elle est déjà rattachée à un compte."
+    });
+  }
+
+  await query("UPDATE orders SET customer_id = $1 WHERE id = $2 AND customer_id IS NULL", [req.auth.sub, order.id]);
+  res.json({ ok: true, orderNumber: order.order_number });
+});
 
 router.patch("/account", requireRole("customer"), async (req, res) => {
   const name = cleanText(req.body.name, 120);

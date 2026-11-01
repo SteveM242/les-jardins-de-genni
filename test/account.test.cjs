@@ -5,6 +5,7 @@ const bcrypt = require("bcryptjs");
 const { installFakeDb, startApp } = require("./helpers.cjs");
 
 const sentResets = [];
+const sentVerifications = [];
 // Faux mailer : capture le lien de réinitialisation au lieu d'envoyer un email.
 const mailerPath = require.resolve("../lib/mailer.cjs");
 require.cache[mailerPath] = {
@@ -12,6 +13,8 @@ require.cache[mailerPath] = {
   filename: mailerPath,
   loaded: true,
   exports: {
+    isConfigured: () => false,
+    sendVerificationEmail: async (payload) => sentVerifications.push(payload),
     sendOrderEmail: async () => {},
     sendStatusEmail: async () => {},
     sendPasswordResetEmail: async (payload) => sentResets.push(payload),
@@ -24,6 +27,9 @@ const calls = [];
 const customerHash = bcrypt.hashSync("motdepasse-client", 4);
 const adminHash = bcrypt.hashSync("motdepasse-admin", 4);
 let resetRow = null;
+let verifyRow = null;
+let linkedOrders = [];
+let orderRow = null;
 
 installFakeDb(async (text, params = []) => {
   calls.push({ text: text.replace(/\s+/g, " "), params });
@@ -42,8 +48,14 @@ installFakeDb(async (text, params = []) => {
     return { rows: params[0] === "marie@example.com" ? [{ id: 1, name: "Marie", email: "marie@example.com" }] : [] };
   }
   if (sql.includes("INSERT INTO customers")) {
-    return { rows: [{ id: 9, name: params[0], email: params[1], phone: params[2], address: null, token_version: 0 }] };
+    return { rows: [{ id: 9, name: params[0], email: params[1], phone: params[2], address: null, token_version: 0, email_verified_at: null }] };
   }
+  if (sql.includes("FROM email_verifications WHERE token_hash")) {
+    return { rows: verifyRow && params[0] === verifyRow.hash ? [{ id: 3, customer_id: 1, email: "marie@example.com" }] : [] };
+  }
+  if (sql.includes("UPDATE customers SET email_verified_at")) return { rows: [{ id: 1, email: "marie@example.com" }] };
+  if (sql.includes("UPDATE orders SET customer_id = $1 WHERE customer_id IS NULL AND email")) return { rows: linkedOrders };
+  if (sql.includes("FROM orders WHERE order_number")) return { rows: orderRow && params[0] === orderRow.order_number ? [orderRow] : [] };
   if (sql.includes("FROM password_resets WHERE token_hash")) return { rows: resetRow && params[0] === resetRow.hash ? [{ id: 5, customer_id: 1 }] : [] };
   if (sql.includes("UPDATE customers SET password_hash")) {
     return { rows: [{ id: 1, name: "Marie", email: "marie@example.com", token_version: 1 }] };
@@ -67,7 +79,11 @@ test.after(() => app.close());
 test.beforeEach(() => {
   calls.length = 0;
   sentResets.length = 0;
+  sentVerifications.length = 0;
   resetRow = null;
+  verifyRow = null;
+  linkedOrders = [];
+  orderRow = null;
 });
 
 const customerCookie = () => `customer_token=${signToken({ sub: 1, role: "customer", v: 0 })}`;
@@ -172,4 +188,96 @@ test("profil : modification du nom, téléphone et adresse (session requise)", a
   assert.equal(res.json.customer.address, "Fort-de-France");
   const empty = await app.request("PATCH", "/api/account", { cookie: customerCookie(), body: { name: "  " } });
   assert.equal(empty.status, 400);
+});
+
+const hashOf = (token) => crypto.createHash("sha256").update(token).digest("hex");
+
+test("inscription : un lien de vérification est créé (jeton haché) et la réponse indique si l'email part", async () => {
+  const res = await app.request("POST", "/api/auth/signup", { body: { name: "Paul", email: "paul@example.com", password: "12345678" } });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.customer.emailVerified, false);
+  assert.equal(res.json.verificationEmailSent, false);
+  const insert = calls.find((c) => c.text.includes("INSERT INTO email_verifications"));
+  assert.match(insert.params[2], /^[0-9a-f]{64}$/);
+  const token = new URL(sentVerifications[0].url).searchParams.get("token");
+  assert.equal(insert.params[2], hashOf(token));
+});
+
+test("vérification de l'email : marque le compte vérifié puis rattache les commandes invité de cet email", async () => {
+  const token = "b".repeat(64);
+  verifyRow = { hash: hashOf(token) };
+  linkedOrders = [{ order_number: "AAA" }, { order_number: "BBB" }];
+  const res = await app.request("POST", "/api/auth/verify", { body: { token } });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.linked, 2);
+  assert.ok(calls.some((c) => c.text.includes("UPDATE email_verifications SET used_at")));
+  const link = calls.find((c) => c.text.includes("UPDATE orders SET customer_id = $1 WHERE customer_id IS NULL AND email"));
+  assert.match(link.text, /lower\(email\) = lower\(\$2\)/);
+  assert.deepEqual(link.params, [1, "marie@example.com"]);
+});
+
+test("vérification de l'email : un jeton inconnu ne rattache rien", async () => {
+  const res = await app.request("POST", "/api/auth/verify", { body: { token: "n'importe quoi" } });
+  assert.equal(res.status, 400);
+  assert.ok(!calls.some((c) => c.text.includes("UPDATE orders")));
+});
+
+test("réinitialisation du mot de passe : prouve aussi l'email et rattache les commandes", async () => {
+  const token = "c".repeat(64);
+  resetRow = { hash: hashOf(token) };
+  const res = await app.request("POST", "/api/auth/reset", { body: { token, password: "nouveau-mot-de-passe" } });
+  assert.equal(res.status, 200);
+  assert.match(calls.find((c) => c.text.includes("UPDATE customers SET password_hash")).text, /email_verified_at = COALESCE/);
+  assert.ok(calls.some((c) => c.text.includes("UPDATE orders SET customer_id = $1 WHERE customer_id IS NULL AND email")));
+});
+
+test("renvoi du lien de vérification : session requise", async () => {
+  assert.equal((await app.request("POST", "/api/account/resend-verification")).status, 401);
+  const res = await app.request("POST", "/api/account/resend-verification", { cookie: customerCookie() });
+  assert.equal(res.status, 200);
+  assert.equal(sentVerifications.length, 1);
+});
+
+test("retrouver une commande sans email : numéro + téléphone (formats différents acceptés)", async () => {
+  orderRow = { id: 40, order_number: "A1B2C3D4", customer_id: null, phone: "0696 12 34 56" };
+  const ok = await app.request("POST", "/api/account/claim-order", {
+    cookie: customerCookie(),
+    body: { orderNumber: " a1b2-c3d4 ", phone: "+596 696 12 34 56" }
+  });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.orderNumber, "A1B2C3D4");
+  const update = calls.find((c) => c.text.includes("UPDATE orders SET customer_id = $1 WHERE id = $2"));
+  assert.deepEqual(update.params, [1, 40]);
+});
+
+test("retrouver une commande : mauvais téléphone, numéro inconnu ou commande d'un autre compte donnent la même réponse", async () => {
+  const request = () =>
+    app.request("POST", "/api/account/claim-order", {
+      cookie: customerCookie(),
+      body: { orderNumber: "A1B2C3D4", phone: "0696123456" }
+    });
+
+  orderRow = { id: 40, order_number: "A1B2C3D4", customer_id: null, phone: "0696999999" };
+  const wrongPhone = await request();
+
+  orderRow = null;
+  const unknown = await request();
+
+  orderRow = { id: 40, order_number: "A1B2C3D4", customer_id: 77, phone: "0696123456" };
+  const taken = await request();
+
+  for (const res of [wrongPhone, unknown, taken]) assert.equal(res.status, 404);
+  assert.deepEqual(wrongPhone.json, unknown.json);
+  assert.deepEqual(unknown.json, taken.json);
+  assert.ok(!calls.some((c) => c.text.includes("UPDATE orders SET customer_id = $1 WHERE id = $2")));
+});
+
+test("retrouver une commande : refusé sans session, et idempotent pour sa propre commande", async () => {
+  assert.equal((await app.request("POST", "/api/account/claim-order", { body: { orderNumber: "X", phone: "0696123456" } })).status, 401);
+  orderRow = { id: 40, order_number: "A1B2C3D4", customer_id: 1, phone: "0696123456" };
+  const mine = await app.request("POST", "/api/account/claim-order", {
+    cookie: customerCookie(),
+    body: { orderNumber: "A1B2C3D4", phone: "0000000000" }
+  });
+  assert.equal(mine.json.alreadyYours, true);
 });
