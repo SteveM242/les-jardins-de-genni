@@ -30,6 +30,7 @@ let resetRow = null;
 let verifyRow = null;
 let linkedOrders = [];
 let orderRow = null;
+let verifiedEmail = false;
 
 installFakeDb(async (text, params = []) => {
   calls.push({ text: text.replace(/\s+/g, " "), params });
@@ -43,7 +44,7 @@ installFakeDb(async (text, params = []) => {
   if (sql.includes("SELECT password_hash FROM admins WHERE email")) {
     return { rows: params[0] === "genni@example.com" ? [{ password_hash: adminHash }] : [] };
   }
-  if (sql.includes("SELECT id FROM customers WHERE email")) return { rows: [] };
+  if (sql.includes("SELECT id FROM customers WHERE email")) return { rows: params[0] === "pris@example.com" ? [{ id: 4 }] : [] };
   if (sql.includes("SELECT id, name, email FROM customers WHERE email")) {
     return { rows: params[0] === "marie@example.com" ? [{ id: 1, name: "Marie", email: "marie@example.com" }] : [] };
   }
@@ -61,10 +62,13 @@ installFakeDb(async (text, params = []) => {
     return { rows: [{ id: 1, name: "Marie", email: "marie@example.com", token_version: 1 }] };
   }
   if (sql.includes("UPDATE customers SET name")) {
-    return { rows: [{ id: 1, name: params[0], email: "marie@example.com", phone: params[1], address: params[2] }] };
+    return { rows: [{ id: 1, name: params[0], email: "marie@example.com", phone: params[1], address: params[2], default_fulfillment: params[3] || "retrait", email_verified_at: verifiedEmail ? "2026-01-01" : null }] };
+  }
+  if (sql.includes("UPDATE customers SET email = $1")) {
+    return { rows: [{ id: 1, name: "Marie", email: params[0], email_verified_at: null }] };
   }
   if (sql.includes("SELECT * FROM customers WHERE id")) {
-    return { rows: [{ id: 1, name: "Marie", email: "marie@example.com", password_hash: customerHash, token_version: 0 }] };
+    return { rows: [{ id: 1, name: "Marie", email: "marie@example.com", password_hash: customerHash, token_version: 0, email_verified_at: verifiedEmail ? "2026-01-01" : null }] };
   }
   return { rows: [] };
 });
@@ -116,13 +120,13 @@ test("connexion réussie : cookie de session HttpOnly", async () => {
 });
 
 test("inscription : mot de passe de 8 à 72 caractères", async () => {
-  const short = await app.request("POST", "/api/auth/signup", { body: { name: "Paul", email: "paul@example.com", password: "1234567" } });
+  const short = await app.request("POST", "/api/auth/signup", { body: { name: "Paul", email: "paul@example.com", password: "1234567", acceptTerms: true } });
   assert.equal(short.status, 400);
-  const long = await app.request("POST", "/api/auth/signup", { body: { name: "Paul", email: "paul@example.com", password: "x".repeat(73) } });
+  const long = await app.request("POST", "/api/auth/signup", { body: { name: "Paul", email: "paul@example.com", password: "x".repeat(73), acceptTerms: true } });
   assert.equal(long.status, 400);
-  const bad = await app.request("POST", "/api/auth/signup", { body: { name: "Paul", email: "pas-un-email", password: "12345678" } });
+  const bad = await app.request("POST", "/api/auth/signup", { body: { name: "Paul", email: "pas-un-email", password: "12345678", acceptTerms: true } });
   assert.equal(bad.status, 400);
-  const ok = await app.request("POST", "/api/auth/signup", { body: { name: "Paul", email: "paul@example.com", password: "12345678" } });
+  const ok = await app.request("POST", "/api/auth/signup", { body: { name: "Paul", email: "paul@example.com", password: "12345678", acceptTerms: true } });
   assert.equal(ok.status, 200);
   assert.ok(calls.find((c) => c.text.includes("INSERT INTO customers")).params[3].startsWith("$2"), "mot de passe haché");
 });
@@ -190,10 +194,74 @@ test("profil : modification du nom, téléphone et adresse (session requise)", a
   assert.equal(empty.status, 400);
 });
 
+test("inscription : les conditions doivent être acceptées, l'adresse est enregistrée", async () => {
+  const refused = await app.request("POST", "/api/auth/signup", { body: { name: "Paul", email: "paul@example.com", password: "12345678" } });
+  assert.equal(refused.status, 400);
+  assert.match(refused.json.error, /conditions/);
+  assert.ok(!calls.some((c) => c.text.includes("INSERT INTO customers")));
+  await app.request("POST", "/api/auth/signup", { body: { name: "Paul", email: "paul@example.com", password: "12345678", address: "Ducos", acceptTerms: true } });
+  assert.equal(calls.find((c) => c.text.includes("INSERT INTO customers")).params[4], "Ducos");
+});
+
+test("préférences : mode par défaut, rappel du lundi (email confirmé requis)", async () => {
+  verifiedEmail = true;
+  const res = await app.request("PATCH", "/api/account", {
+    cookie: customerCookie(),
+    body: { name: "Marie", defaultFulfillment: "livraison", reminder: true }
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.customer.defaultFulfillment, "livraison");
+  assert.equal(res.json.customer.reminder, true);
+  assert.equal(calls.find((c) => c.text.includes("INSERT INTO reminder_subscribers")).params[0], "marie@example.com");
+
+  calls.length = 0;
+  const off = await app.request("PATCH", "/api/account", { cookie: customerCookie(), body: { name: "Marie", reminder: false } });
+  assert.equal(off.json.customer.reminder, false);
+  assert.ok(calls.some((c) => c.text.includes("DELETE FROM reminder_subscribers")));
+
+  verifiedEmail = false;
+  const refused = await app.request("PATCH", "/api/account", { cookie: customerCookie(), body: { name: "Marie", reminder: true } });
+  assert.equal(refused.status, 400);
+  assert.match(refused.json.error, /Confirmez/);
+});
+
+test("changer d'email : mot de passe exigé, doublon refusé, nouvelle adresse à confirmer", async () => {
+  const body = (extra) => ({ cookie: customerCookie(), body: { email: "nouveau@example.com", currentPassword: "motdepasse-client", ...extra } });
+  assert.equal((await app.request("PATCH", "/api/account/email", { body: { email: "x@example.com" } })).status, 401);
+  assert.equal((await app.request("PATCH", "/api/account/email", body({ currentPassword: "faux" }))).status, 400);
+  assert.equal((await app.request("PATCH", "/api/account/email", body({ email: "pas-un-email" }))).status, 400);
+  assert.equal((await app.request("PATCH", "/api/account/email", body({ email: "marie@example.com" }))).status, 400);
+  assert.equal((await app.request("PATCH", "/api/account/email", body({ email: "pris@example.com" }))).status, 409);
+  calls.length = 0;
+  const ok = await app.request("PATCH", "/api/account/email", body());
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.customer.emailVerified, false);
+  assert.ok(calls.some((c) => c.text.includes("INSERT INTO email_verifications")));
+  assert.equal(sentVerifications[0].to, "nouveau@example.com");
+});
+
+test("supprimer mon compte : mot de passe exigé ; commandes détachées, effacées si demandé", async () => {
+  assert.equal((await app.request("DELETE", "/api/account", { body: { currentPassword: "x" } })).status, 401);
+  const wrong = await app.request("DELETE", "/api/account", { cookie: customerCookie(), body: { currentPassword: "faux" } });
+  assert.equal(wrong.status, 400);
+  assert.ok(!calls.some((c) => c.text.includes("DELETE FROM customers")));
+
+  const keep = await app.request("DELETE", "/api/account", { cookie: customerCookie(), body: { currentPassword: "motdepasse-client" } });
+  assert.equal(keep.status, 200);
+  assert.match(keep.headers.get("set-cookie"), /customer_token=;/);
+  assert.ok(calls.some((c) => c.text.includes("UPDATE orders SET customer_id = NULL")));
+  assert.ok(!calls.some((c) => c.text.includes("Client supprimé")));
+
+  calls.length = 0;
+  await app.request("DELETE", "/api/account", { cookie: customerCookie(), body: { currentPassword: "motdepasse-client", eraseOrders: true } });
+  assert.ok(calls.some((c) => c.text.includes("Client supprimé")));
+  assert.ok(calls.some((c) => c.text.includes("DELETE FROM customers WHERE id")));
+});
+
 const hashOf = (token) => crypto.createHash("sha256").update(token).digest("hex");
 
 test("inscription : un lien de vérification est créé (jeton haché) et la réponse indique si l'email part", async () => {
-  const res = await app.request("POST", "/api/auth/signup", { body: { name: "Paul", email: "paul@example.com", password: "12345678" } });
+  const res = await app.request("POST", "/api/auth/signup", { body: { name: "Paul", email: "paul@example.com", password: "12345678", acceptTerms: true } });
   assert.equal(res.status, 200);
   assert.equal(res.json.customer.emailVerified, false);
   assert.equal(res.json.verificationEmailSent, false);

@@ -102,6 +102,7 @@ onMounted(async () => {
     form.name = auth.state.customer.name || "";
     form.phone = auth.state.customer.phone || "";
     form.email = auth.state.customer.email || "";
+    form.fulfillment = auth.state.customer.defaultFulfillment === "livraison" ? "livraison" : "retrait";
     form.address = auth.state.customer.address || "";
   }
 });

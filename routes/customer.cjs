@@ -10,6 +10,7 @@ const { linkGuestOrdersByEmail } = require("../lib/orderLinking.cjs");
 const { samePhone } = require("../lib/phone.cjs");
 const { passwordMatches, validPassword, PASSWORD_RULE } = require("../lib/passwords.cjs");
 const { baseUrlFor } = require("../lib/urls.cjs");
+const { subscribe } = require("../lib/reminders.cjs");
 
 const router = express.Router();
 
@@ -19,8 +20,16 @@ function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
-function publicCustomer(row) {
+// Le client est-il inscrit au rappel du lundi (par son email) ?
+async function hasReminder(email) {
+  const res = await query("SELECT 1 FROM reminder_subscribers WHERE email = $1", [String(email || "").toLowerCase()]);
+  return (res?.rows?.length || 0) > 0;
+}
+
+function publicCustomer(row, reminder = false) {
   return {
+    defaultFulfillment: row.default_fulfillment === "livraison" ? "livraison" : "retrait",
+    reminder,
     id: row.id,
     name: row.name,
     email: row.email,
@@ -47,8 +56,12 @@ router.post("/auth/signup", rateLimits.signup, async (req, res) => {
   const name = cleanText(req.body.name, 120);
   const email = cleanText(req.body.email, 160).toLowerCase();
   const phone = cleanText(req.body.phone, 40);
+  const address = cleanText(req.body.address, 300);
   const password = String(req.body.password || "");
 
+  if (req.body.acceptTerms !== true) {
+    return res.status(400).json({ ok: false, error: "Merci d'accepter les conditions et la politique de confidentialité pour créer un compte." });
+  }
   if (!name || !/^\S+@\S+\.\S+$/.test(email)) {
     return res.status(400).json({ ok: false, error: "Nom et email valides requis." });
   }
@@ -63,8 +76,8 @@ router.post("/auth/signup", rateLimits.signup, async (req, res) => {
 
   const passwordHash = await bcrypt.hash(password, 10);
   const { rows } = await query(
-    "INSERT INTO customers (name, email, phone, password_hash) VALUES ($1,$2,$3,$4) RETURNING id, name, email, phone, address, token_version, email_verified_at",
-    [name, email, phone, passwordHash]
+    "INSERT INTO customers (name, email, phone, password_hash, address) VALUES ($1,$2,$3,$4,$5) RETURNING id, name, email, phone, address, token_version, email_verified_at, default_fulfillment",
+    [name, email, phone, passwordHash, address]
   );
 
   startSession(res, "customer", rows[0]);
@@ -102,7 +115,7 @@ router.post("/auth/logout", (_req, res) => {
 router.get("/auth/me", attachCustomer, async (req, res) => {
   if (!req.customer) return res.json({ ok: true, customer: null });
   const { rows } = await query("SELECT * FROM customers WHERE id = $1", [req.customer.sub]);
-  res.json({ ok: true, customer: rows[0] ? publicCustomer(rows[0]) : null });
+  res.json({ ok: true, customer: rows[0] ? publicCustomer(rows[0], await hasReminder(rows[0].email)) : null });
 });
 
 // Mot de passe oublié : la réponse est toujours la même, que l'email existe ou non.
@@ -213,14 +226,76 @@ router.post("/account/claim-order", rateLimits.reset, requireRole("customer"), a
   res.json({ ok: true, orderNumber: order.order_number });
 });
 
+// Informations et préférences : nom, téléphone, adresse, mode de réception par défaut, rappel du lundi.
 router.patch("/account", requireRole("customer"), async (req, res) => {
   const name = cleanText(req.body.name, 120);
   if (!name) return res.status(400).json({ ok: false, error: "Le nom est obligatoire." });
+  const fulfillment = ["retrait", "livraison"].includes(req.body.defaultFulfillment) ? req.body.defaultFulfillment : null;
+  const reminder = typeof req.body.reminder === "boolean" ? req.body.reminder : null;
+
+  if (reminder === true) {
+    const { rows: current } = await query("SELECT * FROM customers WHERE id = $1", [req.auth.sub]);
+    if (!current[0]?.email_verified_at) {
+      return res.status(400).json({ ok: false, error: "Confirmez d'abord votre email (lien reçu à l'inscription) pour recevoir le rappel du lundi." });
+    }
+  }
+
   const { rows } = await query(
-    "UPDATE customers SET name = $1, phone = $2, address = $3 WHERE id = $4 RETURNING *",
-    [name, cleanText(req.body.phone, 40), cleanText(req.body.address, 300), req.auth.sub]
+    "UPDATE customers SET name = $1, phone = $2, address = $3, default_fulfillment = COALESCE($4, default_fulfillment) WHERE id = $5 RETURNING *",
+    [name, cleanText(req.body.phone, 40), cleanText(req.body.address, 300), fulfillment, req.auth.sub]
   );
-  res.json({ ok: true, customer: publicCustomer(rows[0]) });
+  if (reminder === true) await subscribe({ query }, { email: rows[0].email, name: rows[0].name });
+  else if (reminder === false) await query("DELETE FROM reminder_subscribers WHERE email = $1", [rows[0].email.toLowerCase()]);
+  res.json({ ok: true, customer: publicCustomer(rows[0], reminder ?? (await hasReminder(rows[0].email))) });
+});
+
+// Changer d'email : mot de passe exigé ; la nouvelle adresse doit être confirmée par un lien.
+router.patch("/account/email", rateLimits.account, requireRole("customer"), async (req, res) => {
+  const email = cleanText(req.body.email, 160).toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ ok: false, error: "Cette adresse email n'est pas valide." });
+
+  const { rows } = await query("SELECT * FROM customers WHERE id = $1", [req.auth.sub]);
+  const customer = rows[0];
+  if (!(await passwordMatches(customer?.password_hash, String(req.body.currentPassword || "")))) {
+    return res.status(400).json({ ok: false, error: "Votre mot de passe actuel est incorrect." });
+  }
+  if (email === customer.email) return res.status(400).json({ ok: false, error: "C'est déjà l'adresse de votre compte." });
+  const { rows: taken } = await query("SELECT id FROM customers WHERE email = $1", [email]);
+  if (taken.length > 0) return res.status(409).json({ ok: false, error: "Un compte existe déjà avec cet email." });
+
+  const { rows: updated } = await query(
+    "UPDATE customers SET email = $1, email_verified_at = NULL WHERE id = $2 RETURNING *",
+    [email, customer.id]
+  );
+  // L'ancien email ne doit plus recevoir de rappel ; la nouvelle adresse devra être confirmée avant de se réinscrire.
+  await query("DELETE FROM reminder_subscribers WHERE email = $1", [customer.email.toLowerCase()]);
+  await issueEmailVerification(req, updated[0]);
+  res.json({ ok: true, customer: publicCustomer(updated[0]), verificationEmailSent: isConfigured() });
+});
+
+// Supprimer son compte : mot de passe exigé. Les commandes sont conservées (comptabilité) mais détachées ;
+// avec eraseOrders, leurs données personnelles sont effacées (droit à l'effacement).
+router.delete("/account", rateLimits.account, requireRole("customer"), async (req, res) => {
+  const { rows } = await query("SELECT * FROM customers WHERE id = $1", [req.auth.sub]);
+  const customer = rows[0];
+  if (!(await passwordMatches(customer?.password_hash, String(req.body?.currentPassword || "")))) {
+    return res.status(400).json({ ok: false, error: "Votre mot de passe est incorrect : le compte n'a pas été supprimé." });
+  }
+  const erase = req.body?.eraseOrders === true;
+  await withTransaction(async (client) => {
+    if (erase) {
+      await client.query(
+        `UPDATE orders SET name = 'Client supprimé', phone = '', email = NULL, address = NULL, notes = NULL
+         WHERE customer_id = $1 OR (email <> '' AND lower(email) = lower($2))`,
+        [customer.id, customer.email]
+      );
+    }
+    await client.query("UPDATE orders SET customer_id = NULL WHERE customer_id = $1", [customer.id]);
+    await client.query("DELETE FROM reminder_subscribers WHERE email = $1", [customer.email.toLowerCase()]);
+    await client.query("DELETE FROM customers WHERE id = $1", [customer.id]);
+  });
+  clearAuthCookie(res, "customer");
+  res.json({ ok: true });
 });
 
 router.post("/account/password", rateLimits.reset, requireRole("customer"), async (req, res) => {

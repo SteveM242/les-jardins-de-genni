@@ -9,7 +9,7 @@ import BackLink from "../../components/BackLink.vue";
 const router = useRouter();
 const auth = useAuth();
 const toast = useToast();
-const form = reactive({ name: "", email: "", phone: "", password: "" });
+const form = reactive({ name: "", email: "", phone: "", address: "", password: "", acceptTerms: false });
 const error = ref("");
 const loading = ref(false);
 
@@ -23,7 +23,7 @@ async function submit() {
         ? "Compte créé. Cliquez sur le lien reçu par email pour confirmer votre adresse et retrouver vos commandes passées."
         : "Compte créé."
     );
-    router.push("/compte");
+    router.push({ path: "/compte", query: { bienvenue: "1" } });
   } catch (err) {
     error.value = err.message;
   } finally {
@@ -53,13 +53,25 @@ async function submit() {
           <input v-model.trim="form.phone" type="tel" autocomplete="tel" />
         </label>
         <label>
+          Adresse de livraison (facultatif)
+          <textarea v-model.trim="form.address" rows="2" autocomplete="street-address" placeholder="Pour pré-remplir vos livraisons"></textarea>
+        </label>
+        <label>
           Mot de passe (8 caractères min.)
           <PasswordField v-model="form.password" minlength="8" autocomplete="new-password" />
         </label>
 
+        <label class="consent">
+          <input v-model="form.acceptTerms" type="checkbox" required />
+          <span>
+            J'accepte les <RouterLink to="/conditions" target="_blank">conditions de commande</RouterLink> et la
+            <RouterLink to="/confidentialite" target="_blank">politique de confidentialité</RouterLink>.
+          </span>
+        </label>
+
         <p v-if="error" class="form-error" role="alert">{{ error }}</p>
 
-        <button type="submit" class="btn primary" :disabled="loading">
+        <button type="submit" class="btn primary" :disabled="loading || !form.acceptTerms">
           {{ loading ? "Création…" : "Créer mon compte" }}
         </button>
       </form>
@@ -99,6 +111,26 @@ h1 {
   gap: 6px;
   font-size: 13px;
   font-weight: 600;
+}
+
+.auth-form textarea {
+  font: inherit;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+}
+
+.auth-form label.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.auth-form label.consent input {
+  width: auto;
+  padding: 0;
+  margin-top: 3px;
 }
 
 .auth-form input {

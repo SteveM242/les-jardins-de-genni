@@ -13,8 +13,8 @@ async function fetchMe() {
   return state.customer;
 }
 
-async function signup({ name, email, phone, password }) {
-  const res = await api("/api/auth/signup", { method: "POST", body: { name, email, phone, password } });
+async function signup({ name, email, phone, address, password, acceptTerms }) {
+  const res = await api("/api/auth/signup", { method: "POST", body: { name, email, phone, address, password, acceptTerms } });
   if (!res.ok) throw new Error(res.error || "Inscription impossible.");
   state.customer = res.data.customer;
   return { customer: state.customer, verificationEmailSent: Boolean(res.data.verificationEmailSent) };
@@ -27,11 +27,26 @@ async function login({ email, password }) {
   return state.customer;
 }
 
-async function updateProfile({ name, phone, address }) {
-  const res = await api("/api/account", { method: "PATCH", body: { name, phone, address } });
+// defaultFulfillment ("retrait" | "livraison") et reminder (rappel du lundi) sont facultatifs.
+async function updateProfile({ name, phone, address, defaultFulfillment, reminder }) {
+  const res = await api("/api/account", { method: "PATCH", body: { name, phone, address, defaultFulfillment, reminder } });
   if (!res.ok) throw new Error(res.error || "Enregistrement impossible.");
   state.customer = res.data.customer;
   return state.customer;
+}
+
+// Changer d'email : la nouvelle adresse doit être confirmée par un lien.
+async function changeEmail({ email, currentPassword }) {
+  const res = await api("/api/account/email", { method: "PATCH", body: { email, currentPassword } });
+  if (!res.ok) throw new Error(res.error || "Changement impossible.");
+  state.customer = res.data.customer;
+  return { verificationEmailSent: Boolean(res.data.verificationEmailSent) };
+}
+
+async function deleteAccount({ currentPassword, eraseOrders }) {
+  const res = await api("/api/account", { method: "DELETE", body: { currentPassword, eraseOrders } });
+  if (!res.ok) throw new Error(res.error || "Suppression impossible.");
+  state.customer = null;
 }
 
 async function changePassword({ currentPassword, newPassword }) {
@@ -68,6 +83,8 @@ export function useAuth() {
     logout,
     updateProfile,
     changePassword,
+    changeEmail,
+    deleteAccount,
     verifyEmail,
     resendVerification,
     claimOrder
