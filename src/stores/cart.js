@@ -83,6 +83,34 @@ function saveCustomBasket({ key = null, name, contents, qty = 1 }) {
   return newKey;
 }
 
+// Ajoute (ou met à jour, si `key` est fourni) un panier personnalisable avec le choix du client.
+// selection : [{ name, qty }] ; le prix reste celui du panier (le serveur recontrôle le choix).
+function saveBasketSelection({ key = null, basket, selection, qty = 1 }) {
+  const chosen = selection.filter((entry) => entry.qty > 0).map(({ name, qty: n }) => ({ name, qty: n }));
+  const existing = key ? findByKey(key) : null;
+  if (existing) {
+    existing.selection = chosen;
+    existing.contents = chosen;
+    existing.qty = qty;
+    existing.price = basket.price;
+    return existing.key;
+  }
+  const unique = globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const newKey = `basket:${basket.slug}:${unique}`;
+  state.items.push({
+    key: newKey,
+    type: "basket",
+    slug: basket.slug,
+    name: basket.name,
+    price: basket.price,
+    unit: null,
+    qty,
+    selection: chosen,
+    contents: chosen
+  });
+  return newKey;
+}
+
 function removeItem(key) {
   const index = state.items.findIndex((item) => keyOf(item) === key);
   if (index !== -1) state.items.splice(index, 1);
@@ -116,6 +144,7 @@ function toPayload() {
     name: item.name,
     qty: item.qty,
     expectedPrice: item.price,
+    selection: item.type === "basket" && item.selection ? item.selection : undefined,
     contents: item.type === "custom" ? item.contents.map(({ slug, name, qty }) => ({ slug, name, qty })) : undefined
   }));
 }
@@ -152,6 +181,7 @@ export function useCart() {
     subtotal,
     addItem,
     saveCustomBasket,
+    saveBasketSelection,
     removeItem,
     setQty,
     setDiscountCode,

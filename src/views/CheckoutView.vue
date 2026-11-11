@@ -341,8 +341,12 @@ async function submitOrder() {
                 <div class="cart-row-main">
                   <strong>{{ item.name }}</strong>
                   <span v-if="item.type === 'custom'" class="line-tag">Panier sur mesure</span>
+                  <span v-else-if="item.selection" class="line-tag">Personnalisé</span>
                   <span class="cart-row-price">{{ formatPrice(item.price) }} € / {{ item.type === "custom" || item.type === "basket" ? "panier" : item.unit || "unité" }}</span>
                   <CartLineContents :line="item" />
+                  <RouterLink v-if="item.type === 'basket' && item.selection" :to="{ path: `/panier/${item.slug}`, query: { ligne: item.key } }" class="edit-link">
+                    Modifier le contenu
+                  </RouterLink>
                   <RouterLink v-if="item.type === 'custom'" :to="{ path: '/composer', query: { panier: item.key } }" class="edit-link">
                     Modifier ce panier
                   </RouterLink>

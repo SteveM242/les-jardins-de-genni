@@ -184,9 +184,109 @@ async function removeItem(basket, index) {
   if (ok) remember(basket);
 }
 
+// ---------- Composition (panier personnalisable) ----------
+// Brouillon par panier : rien n'est enregistré tant qu'on ne clique pas sur « Enregistrer la composition ».
+const compDrafts = reactive({});
+const newEntry = reactive({});
+
+function cloneComposition(composition) {
+  return JSON.parse(JSON.stringify(composition));
+}
+
+function startComposition(basket) {
+  compDrafts[basket.id] = basket.composition
+    ? cloneComposition(basket.composition)
+    : {
+        maxItems: Math.max(basket.items.length, 1),
+        entries: basket.items.map((name) => ({ name, qty: 1, max: 2, kind: "base", note: "" }))
+      };
+}
+
+function cancelComposition(basket) {
+  delete compDrafts[basket.id];
+  if (basket.composition) startComposition(basket);
+}
+
+function addEntry(basket, kind) {
+  const draft = compDrafts[basket.id];
+  const name = (newEntry[basket.id + kind] || "").trim();
+  if (!name) return;
+  if (draft.entries.some((entry) => entry.name.toLowerCase() === name.toLowerCase())) {
+    toast.error(`« ${name} » est déjà dans la composition.`);
+    return;
+  }
+  draft.entries.push({ name, qty: kind === "base" ? 1 : 0, max: kind === "base" ? 2 : 1, kind, note: "" });
+  newEntry[basket.id + kind] = "";
+}
+
+function removeEntry(basket, index) {
+  compDrafts[basket.id].entries.splice(index, 1);
+}
+
+function defaultTotal(draft) {
+  return draft.entries.reduce((sum, entry) => sum + (Number(entry.qty) || 0), 0);
+}
+
+// Mêmes contrôles que le serveur : le bouton d'enregistrement reste bloqué tant qu'il y a une erreur.
+function compositionProblems(draft) {
+  const problems = [];
+  const names = new Set();
+  for (const entry of draft.entries) {
+    const label = entry.name?.trim() || "(sans nom)";
+    if (!entry.name?.trim()) problems.push("Un article n'a pas de nom.");
+    else if (names.has(entry.name.trim().toLowerCase())) problems.push(`« ${label} » apparaît deux fois.`);
+    names.add(entry.name?.trim().toLowerCase());
+    for (const [field, text, min] of [["qty", "quantité par défaut", 0], ["max", "maximum", 1]]) {
+      const value = Number(entry[field]);
+      if (!Number.isInteger(value) || value < min || value > 20) problems.push(`« ${label} » : ${text} entre ${min} et 20.`);
+    }
+    if (Number(entry.qty) > Number(entry.max)) problems.push(`« ${label} » : la quantité par défaut dépasse le maximum.`);
+  }
+  const total = defaultTotal(draft);
+  const limit = Number(draft.maxItems);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 60) problems.push("Le total d'articles doit être entre 1 et 60.");
+  else if (total > limit) problems.push(`Les quantités par défaut (${total}) dépassent le total autorisé (${limit}).`);
+  if (total === 0) problems.push("Au moins un article doit avoir une quantité par défaut supérieure à 0.");
+  return [...new Set(problems)];
+}
+
+async function saveComposition(basket) {
+  const draft = compDrafts[basket.id];
+  if (compositionProblems(draft).length) return;
+  const payload = {
+    maxItems: Number(draft.maxItems),
+    entries: draft.entries.map((entry) => ({
+      name: entry.name.trim(),
+      qty: Number(entry.qty),
+      max: Number(entry.max),
+      kind: entry.kind,
+      note: (entry.note || "").trim()
+    }))
+  };
+  const ok = await update(basket, { composition: payload });
+  if (ok) {
+    remember(basket);
+    startComposition(basket);
+    toast.success(`Composition de « ${basket.name} » enregistrée.`);
+  }
+}
+
+async function disableComposition(basket) {
+  if (!confirm(`Revenir à un panier classique pour « ${basket.name} » ?\n\nLes client·e·s ne pourront plus remplacer ni doubler d'articles. Les commandes déjà passées ne changent pas.`)) return;
+  const ok = await update(basket, { composition: false });
+  if (ok) {
+    delete compDrafts[basket.id];
+    remember(basket);
+    toast.success(`« ${basket.name} » est de nouveau un panier classique.`);
+  }
+}
+
 onMounted(async () => {
   await load();
-  baskets.value.forEach(remember);
+  baskets.value.forEach((basket) => {
+    remember(basket);
+    if (basket.composition) startComposition(basket);
+  });
 });
 </script>
 
@@ -267,7 +367,7 @@ onMounted(async () => {
           <textarea v-model.trim="basket.details" rows="3" maxlength="2000" @change="saveField(basket, 'details')"></textarea>
         </label>
 
-        <div class="items-field">
+        <div v-if="!basket.composition && !compDrafts[basket.id]" class="items-field">
           <span class="items-label">Contenu du panier ({{ basket.items.length }} article{{ basket.items.length > 1 ? "s" : "" }})</span>
           <div class="items-tags">
             <span v-for="(item, index) in basket.items" :key="index" class="item-tag">
@@ -287,6 +387,61 @@ onMounted(async () => {
           </div>
         </div>
 
+        <div v-if="!basket.composition && !compDrafts[basket.id]" class="composition-cta">
+          <button type="button" class="btn ghost" @click="startComposition(basket)">⚙ Rendre ce panier personnalisable</button>
+          <small>Le client pourra remplacer ou doubler des articles, à prix fixe, dans la limite d'un total.</small>
+        </div>
+
+        <section v-if="compDrafts[basket.id]" class="composition" aria-label="Composition du panier">
+          <h3>Composition du panier personnalisable</h3>
+          <p class="composition-help">
+            Le client part des quantités <strong>par défaut</strong> et peut les modifier sans changer le prix, sans dépasser le
+            <strong>maximum</strong> de chaque article ni le <strong>total d'articles</strong> du panier. Les articles de remplacement
+            démarrent à 0.
+          </p>
+          <label class="composition-total">
+            Total d'articles du panier
+            <input v-model.number="compDrafts[basket.id].maxItems" type="number" min="1" max="60" />
+          </label>
+
+          <div class="entry-head" aria-hidden="true">
+            <span>Article</span><span>Type</span><span>Par défaut</span><span>Maximum</span><span>Précision (provenance, quantité…)</span><span></span>
+          </div>
+          <div v-for="(entry, index) in compDrafts[basket.id].entries" :key="index" class="entry-row" :class="{ replacement: entry.kind === 'replacement' }">
+            <input v-model="entry.name" maxlength="80" placeholder="Article" aria-label="Nom de l'article" />
+            <select v-model="entry.kind" aria-label="Type">
+              <option value="base">Dans le panier</option>
+              <option value="replacement">Remplacement</option>
+            </select>
+            <input v-model.number="entry.qty" type="number" min="0" max="20" aria-label="Quantité par défaut" />
+            <input v-model.number="entry.max" type="number" min="1" max="20" aria-label="Quantité maximale" />
+            <input v-model="entry.note" maxlength="120" placeholder="ex: La Roquette, 1 botte" aria-label="Précision" />
+            <button type="button" class="entry-remove" aria-label="Retirer l'article" @click="removeEntry(basket, index)">×</button>
+          </div>
+
+          <div class="entry-add">
+            <input v-model="newEntry[basket.id + 'base']" maxlength="80" placeholder="Ajouter un article du panier" @keyup.enter="addEntry(basket, 'base')" />
+            <button type="button" class="btn ghost" @click="addEntry(basket, 'base')">+ Article</button>
+            <input v-model="newEntry[basket.id + 'replacement']" maxlength="80" placeholder="Ajouter un remplacement" @keyup.enter="addEntry(basket, 'replacement')" />
+            <button type="button" class="btn ghost" @click="addEntry(basket, 'replacement')">+ Remplacement</button>
+          </div>
+
+          <p class="composition-summary" :class="{ bad: defaultTotal(compDrafts[basket.id]) > compDrafts[basket.id].maxItems }">
+            Quantités par défaut : <strong>{{ defaultTotal(compDrafts[basket.id]) }}</strong> / {{ compDrafts[basket.id].maxItems }} articles
+          </p>
+          <ul v-if="compositionProblems(compDrafts[basket.id]).length" class="composition-problems" role="alert">
+            <li v-for="problem in compositionProblems(compDrafts[basket.id])" :key="problem">{{ problem }}</li>
+          </ul>
+
+          <div class="composition-actions">
+            <button type="button" class="btn primary" :disabled="compositionProblems(compDrafts[basket.id]).length > 0" @click="saveComposition(basket)">
+              Enregistrer la composition
+            </button>
+            <button type="button" class="btn ghost" @click="cancelComposition(basket)">Annuler</button>
+            <button v-if="basket.composition" type="button" class="link-btn" @click="disableComposition(basket)">Revenir à un panier classique</button>
+          </div>
+        </section>
+
         <div class="basket-footer">
           <button type="button" class="link-btn" @click="removeBasket(basket)">Supprimer ce panier</button>
         </div>
@@ -296,6 +451,136 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.composition-cta {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  margin-bottom: 12px;
+}
+
+.composition-cta small {
+  color: var(--muted);
+}
+
+.composition {
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1.5px solid var(--green);
+  border-radius: 12px;
+  background: var(--green-soft);
+  display: grid;
+  gap: 10px;
+}
+
+.composition h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.composition-help {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.composition-total {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.composition-total input {
+  width: 80px;
+  font: inherit;
+  padding: 6px 8px;
+}
+
+.entry-head,
+.entry-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1.1fr 0.6fr 0.6fr 1.6fr auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.entry-head {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.entry-row input,
+.entry-row select,
+.entry-add input {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.entry-row.replacement {
+  background: #fff;
+  border-radius: 8px;
+  outline: 1px dashed var(--clay);
+  outline-offset: 2px;
+}
+
+.entry-remove {
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--hibiscus);
+}
+
+.entry-add {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+}
+
+.composition-summary {
+  margin: 0;
+  font-size: 14px;
+}
+
+.composition-summary.bad {
+  color: var(--hibiscus);
+}
+
+.composition-problems {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--hibiscus);
+  font-size: 13px;
+}
+
+.composition-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 760px) {
+  .entry-head {
+    display: none;
+  }
+
+  .entry-row {
+    grid-template-columns: 1fr 1fr;
+    padding: 8px;
+    background: #fff;
+    border-radius: 8px;
+  }
+}
+
 h1 {
   font-size: 24px;
   margin: 0 0 6px;

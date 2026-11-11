@@ -123,3 +123,34 @@ test("panier : une modification partielle ne contrôle que les champs fournis", 
   assert.deepEqual(parseBasketInput({ active: false }, { partial: true }), { active: false });
   assert.deepEqual(parseBasketInput({ price: null, name: undefined }, { partial: true }), {});
 });
+
+const { parseComposition, resolveSelection, defaultSelection, CompositionError } = require("../lib/composition.cjs");
+
+test("composition : valeurs par défaut, doublons et incohérences", () => {
+  const comp = parseComposition({
+    maxItems: 4,
+    entries: [{ name: " Salade ", qty: 1, max: 2 }, { name: "Oeufs", qty: 2 }, { name: "Blettes", kind: "replacement" }]
+  });
+  assert.deepEqual(comp.entries[2], { name: "Blettes", qty: 0, max: 1, kind: "replacement", note: "" });
+  assert.equal(comp.entries[0].name, "Salade");
+  assert.deepEqual(defaultSelection(comp), [{ name: "Salade", qty: 1 }, { name: "Oeufs", qty: 2 }]);
+  const bad = (raw) => assert.throws(() => parseComposition(raw), CompositionError);
+  bad(null);
+  bad({ entries: [] });
+  bad({ entries: [{ name: "A", qty: 0 }] });
+  bad({ entries: [{ name: "A", qty: 1 }, { name: "a", qty: 1 }] });
+  bad({ maxItems: 1, entries: [{ name: "A", qty: 2 }] });
+  bad({ entries: [{ name: "A", qty: 3, max: 2 }] });
+  bad({ entries: [{ name: "A", qty: 1.5 }] });
+  bad({ entries: [{ name: "", qty: 1 }] });
+});
+
+test("composition : le choix du client est contrôlé sans ajustement silencieux", () => {
+  const comp = parseComposition({ maxItems: 3, entries: [{ name: "A", qty: 2, max: 2 }, { name: "B", qty: 1, max: 2 }, { name: "C", kind: "replacement", max: 2 }] });
+  assert.deepEqual(resolveSelection(comp, [{ name: "a", qty: 1 }, { name: "C", qty: 2 }]).selection, [{ name: "A", qty: 1 }, { name: "C", qty: 2 }]);
+  assert.match(resolveSelection(comp, [{ name: "A", qty: 2 }, { name: "B", qty: 2 }]).error, /3 articles/);
+  assert.match(resolveSelection(comp, [{ name: "C", qty: 3 }]).error, /2 maximum/);
+  assert.match(resolveSelection(comp, [{ name: "Z", qty: 1 }]).error, /ne fait pas partie/);
+  assert.match(resolveSelection(comp, [{ name: "A", qty: -1 }]).error, /invalide/);
+  assert.match(resolveSelection(comp, []).error, /au moins un article/);
+});

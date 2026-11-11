@@ -25,14 +25,28 @@ installFakeDb(async (text, params = []) => {
   }
   if (sql.includes("FROM baskets WHERE slug = ANY")) {
     const basket = { slug: "panier-decouverte", name: "Panier Découverte", price: "12.00", items: ["Mangues", "Christophines"] };
-    return { rows: params[0].includes("panier-decouverte") ? [basket] : [] };
+    const familial = {
+      slug: "panier-familial",
+      name: "Panier Familial",
+      price: "34.00",
+      items: ["Salade", "Oignons"],
+      composition: {
+        maxItems: 3,
+        entries: [
+          { name: "Salade", qty: 1, max: 2, kind: "base", note: "" },
+          { name: "Poireaux", qty: 2, max: 2, kind: "base", note: "" },
+          { name: "Oignons", qty: 0, max: 2, kind: "replacement", note: "" }
+        ]
+      }
+    };
+    return { rows: [basket, familial].filter((row) => params[0].includes(row.slug)) };
   }
   if (sql.includes("INSERT INTO orders") && insertFailures > 0) {
     insertFailures -= 1;
     throw Object.assign(new Error("duplicate key"), { code: "23505" });
   }
   if (sql.includes("FROM orders WHERE order_number")) return { rows: orderByCode && params[0] === orderByCode.order_number ? [orderByCode] : [] };
-  if (sql.includes("SELECT id, items FROM baskets WHERE id")) return { rows: basketCurrent ? [basketCurrent] : [] };
+  if (sql.includes("SELECT id, items, composition FROM baskets WHERE id")) return { rows: basketCurrent ? [basketCurrent] : [] };
   if (sql.includes("lower(name) = lower")) return { rows: basketNameTaken ? [{ "?column?": 1 }] : [] };
   if (sql.includes("UPDATE baskets SET")) return { rows: [{ id: 3, name: params[0] || "Panier", price: params[1] || "10.00", active: params[5], items: [] }] };
   if (sql.includes("FROM discount_codes")) return { rows: discountRow ? [discountRow] : [] };
@@ -365,4 +379,38 @@ test("modifier un panier : une modification valide est enregistrée nettoyée, u
   assert.equal(update.params[1], 12.46);
   basketCurrent = null;
   assert.equal((await app.request("PATCH", "/api/admin/baskets/3", { cookie: adminCookie(), body: { price: 5 } })).status, 404);
+});
+
+test("panier personnalisable : remplacements et doubles acceptés, prix fixe, contenu enregistré", async () => {
+  const order = (selection) =>
+    app.request("POST", "/api/orders", {
+      body: { customer, items: [{ key: "f1", type: "basket", slug: "panier-familial", qty: 1, selection }] }
+    });
+  // On remplace 1 poireau par des oignons : total 3, dans la limite.
+  const ok = await order([{ name: "Salade", qty: 1 }, { name: "Poireaux", qty: 1 }, { name: "Oignons", qty: 1 }]);
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.total, 34);
+  const stored = JSON.parse(calls.find((c) => c.text.includes("INSERT INTO orders")).params[8]);
+  assert.deepEqual(stored[0].contents, [{ name: "Salade", qty: 1 }, { name: "Poireaux", qty: 1 }, { name: "Oignons", qty: 1 }]);
+  assert.equal(stored[0].price, 34);
+});
+
+test("panier personnalisable : dépassement du total, du maximum ou article inconnu signalés", async () => {
+  // /cart/check relit le panier comme la commande, sans enregistrer ni limiter le débit.
+  const check = async (selection) => {
+    const res = await app.request("POST", "/api/cart/check", {
+      body: { items: [{ key: "f1", type: "basket", slug: "panier-familial", qty: 1, selection }] }
+    });
+    return res.json;
+  };
+  const tooMany = await check([{ name: "Salade", qty: 2 }, { name: "Poireaux", qty: 2 }]);
+  assert.equal(tooMany.lines.length, 0);
+  assert.match(tooMany.unavailable[0].reason, /3 articles/);
+  assert.match((await check([{ name: "Salade", qty: 3 }])).unavailable[0].reason, /2 maximum/);
+  assert.match((await check([{ name: "Truffe", qty: 1 }])).unavailable[0].reason, /ne fait pas partie/);
+  assert.match((await check([{ name: "Salade", qty: 0 }])).unavailable[0].reason, /au moins un article/);
+  // Sans choix précis (ancien panier, WhatsApp) : composition par défaut.
+  const byDefault = await check(undefined);
+  assert.equal(byDefault.lines.length, 1);
+  assert.deepEqual(byDefault.lines[0].contents, [{ name: "Salade", qty: 1 }, { name: "Poireaux", qty: 2 }]);
 });

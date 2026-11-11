@@ -84,6 +84,15 @@ export function customerWhatsappLink(phone, message) {
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
 }
 
+// Panier personnalisable : le message reprend le choix du client.
+export function whatsappBasketLink(basketName, selection) {
+  const lines = selection.map((entry) => `  - ${entry.qty} x ${entry.name}`);
+  const newline = String.fromCharCode(10);
+  return whatsappLink(
+    `Bonjour L'Héritage des Mornes, je souhaite commander le ${basketName} avec ce choix :${newline}${lines.join(newline)}${newline}${newline}Est-ce disponible cette semaine ?`
+  );
+}
+
 export function whatsappCartLink(items) {
   const lines = items.map((item) => `- ${item.qty} x ${item.name}`);
   return whatsappLink(`Bonjour L'Héritage des Mornes, je souhaite commander :\n${lines.join("\n")}\n\nEst-ce disponible cette semaine ?`);

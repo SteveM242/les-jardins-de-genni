@@ -1,10 +1,10 @@
 <script setup>
-import { computed, ref, onMounted, watch } from "vue";
+import { computed, reactive, ref, onMounted, watch } from "vue";
 import { setPageTitle } from "../pageMeta.js";
 import { useToast } from "../stores/toast.js";
 import { useRoute, RouterLink, useRouter } from "vue-router";
 import { useCatalog } from "../stores/catalog.js";
-import { site, whatsappOrderLink } from "../data/site.js";
+import { site, whatsappOrderLink, whatsappBasketLink } from "../data/site.js";
 import { useCart } from "../stores/cart.js";
 import LoadError from "../components/LoadError.vue";
 import PanierCard from "../components/PanierCard.vue";
@@ -21,10 +21,89 @@ const cart = useCart();
 const toast = useToast();
 const qty = ref(1);
 
+// ---------- Panier personnalisable : remplacer / doubler des articles, à prix fixe ----------
+const composition = computed(() => panier.value?.composition || null);
+const choice = reactive({});
+// Ligne du panier d'achat en cours de modification (lien « Modifier le contenu »).
+const editingKey = computed(() => (typeof route.query.ligne === "string" ? route.query.ligne : null));
+
+function resetChoice() {
+  for (const key of Object.keys(choice)) delete choice[key];
+  for (const entry of composition.value?.entries || []) choice[entry.name] = entry.qty;
+}
+
+// Initialise (ou réinitialise) le choix quand le panier est chargé ou qu'on arrive depuis le panier d'achat.
+watch(
+  [composition, editingKey],
+  () => {
+    if (!composition.value) return;
+    resetChoice();
+    const line = editingKey.value ? cart.getByKey(editingKey.value) : null;
+    if (line?.selection && line.slug === panier.value.slug) {
+      for (const entry of composition.value.entries) choice[entry.name] = 0;
+      for (const picked of line.selection) if (picked.name in choice) choice[picked.name] = picked.qty;
+      qty.value = line.qty;
+    }
+  },
+  { immediate: true }
+);
+
+const baseEntries = computed(() => (composition.value?.entries || []).filter((entry) => entry.kind === "base"));
+const replacementEntries = computed(() => (composition.value?.entries || []).filter((entry) => entry.kind === "replacement"));
+const total = computed(() => Object.values(choice).reduce((sum, n) => sum + n, 0));
+const remaining = computed(() => (composition.value ? composition.value.maxItems - total.value : 0));
+const isDefault = computed(() => (composition.value?.entries || []).every((entry) => choice[entry.name] === entry.qty));
+const selection = computed(() =>
+  (composition.value?.entries || []).filter((entry) => choice[entry.name] > 0).map((entry) => ({ name: entry.name, qty: choice[entry.name] }))
+);
+
+function canAdd(entry) {
+  return choice[entry.name] < entry.max && remaining.value > 0;
+}
+
+function bump(entry, delta) {
+  const next = choice[entry.name] + delta;
+  if (next < 0 || next > entry.max || (delta > 0 && remaining.value <= 0)) return;
+  choice[entry.name] = next;
+}
+
+// Saisie directe : jamais au-delà du maximum de l'article ni du total autorisé.
+function setFromInput(entry, event) {
+  const wanted = Math.floor(Number(event.target.value));
+  const others = total.value - choice[entry.name];
+  const allowed = Math.min(entry.max, composition.value.maxItems - others);
+  const next = Number.isFinite(wanted) ? Math.min(Math.max(wanted, 0), allowed) : choice[entry.name];
+  choice[entry.name] = next;
+  event.target.value = next;
+  if (Number.isFinite(wanted) && wanted > allowed) {
+    toast.error(
+      allowed === entry.max
+        ? `« ${entry.name} » : ${entry.max} maximum.`
+        : `Le panier ne peut pas dépasser ${composition.value.maxItems} articles.`
+    );
+  }
+}
+
+const whatsappLink = computed(() =>
+  composition.value ? whatsappBasketLink(panier.value.name, selection.value) : whatsappOrderLink(panier.value?.name)
+);
+
 // goToCart=false : on reste sur la page pour continuer ses achats.
 function handleAdd(goToCart) {
   const quantity = Math.min(Math.max(Math.floor(Number(qty.value)) || 1, 1), 50);
-  cart.addItem(panier.value, quantity);
+  if (composition.value) {
+    if (total.value === 0) {
+      toast.error("Choisissez au moins un article.");
+      return;
+    }
+    cart.saveBasketSelection({ key: editingKey.value, basket: panier.value, selection: selection.value, qty: quantity });
+    if (editingKey.value) {
+      router.push("/commande");
+      return;
+    }
+  } else {
+    cart.addItem(panier.value, quantity);
+  }
   if (goToCart) router.push("/commande");
   else toast.success(`${quantity} × ${panier.value.name} ajouté${quantity > 1 ? "s" : ""} au panier.`);
 }
@@ -48,23 +127,77 @@ function handleAdd(goToCart) {
           <p class="panier-detail-price">{{ Number(panier.price).toLocaleString("fr-FR", { maximumFractionDigits: 2 }) }} €</p>
           <p class="panier-detail-summary">{{ panier.summary }}</p>
 
+          <section v-if="composition" class="composer" aria-labelledby="composer-title">
+            <h2 id="composer-title">Composez votre panier</h2>
+            <p class="composer-help">
+              Ce panier contient <strong>{{ composition.maxItems }} articles</strong>. Vous pouvez remplacer un article par un autre
+              ou en prendre en double, <strong>sans changer le prix</strong>, tant que le total ne dépasse pas
+              {{ composition.maxItems }} articles. Pour remplacer un article : mettez-le à <strong>0</strong>, puis choisissez
+              1 ou 2 dans les articles de remplacement.
+            </p>
+
+            <div class="composer-counter" :class="{ full: remaining === 0 }" role="status" aria-live="polite">
+              <div class="composer-counter-text">
+                <strong>{{ total }} / {{ composition.maxItems }} articles</strong>
+                <span v-if="remaining === 0">Votre panier est complet.</span>
+                <span v-else>Il vous reste {{ remaining }} article{{ remaining > 1 ? "s" : "" }} à choisir.</span>
+              </div>
+              <div class="composer-bar" aria-hidden="true">
+                <span :style="{ width: Math.min(100, (total / composition.maxItems) * 100) + '%' }"></span>
+              </div>
+              <button v-if="!isDefault" type="button" class="link-btn" @click="resetChoice">Revenir au panier d'origine</button>
+            </div>
+
+            <h3 class="composer-group">Dans votre panier</h3>
+            <ul class="composer-list">
+              <li v-for="entry in baseEntries" :key="entry.name" :class="{ off: choice[entry.name] === 0 }">
+                <div class="composer-name">
+                  <strong>{{ entry.name }}</strong>
+                  <small v-if="entry.note">{{ entry.note }}</small>
+                </div>
+                <div class="qty-stepper">
+                  <button type="button" :disabled="choice[entry.name] <= 0" :aria-label="`Retirer un ${entry.name}`" @click="bump(entry, -1)">−</button>
+                  <input type="number" min="0" :max="entry.max" :value="choice[entry.name]" :aria-label="`Quantité de ${entry.name}`" @change="setFromInput(entry, $event)" />
+                  <button type="button" :disabled="!canAdd(entry)" :aria-label="`Ajouter un ${entry.name}`" @click="bump(entry, 1)">+</button>
+                </div>
+              </li>
+            </ul>
+
+            <template v-if="replacementEntries.length">
+              <h3 class="composer-group">Articles de remplacement</h3>
+              <ul class="composer-list">
+                <li v-for="entry in replacementEntries" :key="entry.name" :class="{ on: choice[entry.name] > 0 }">
+                  <div class="composer-name">
+                    <strong>{{ entry.name }}</strong>
+                    <small v-if="entry.note">{{ entry.note }}</small>
+                  </div>
+                  <div class="qty-stepper">
+                    <button type="button" :disabled="choice[entry.name] <= 0" :aria-label="`Retirer un ${entry.name}`" @click="bump(entry, -1)">−</button>
+                    <input type="number" min="0" :max="entry.max" :value="choice[entry.name]" :aria-label="`Quantité de ${entry.name}`" @change="setFromInput(entry, $event)" />
+                    <button type="button" :disabled="!canAdd(entry)" :aria-label="`Ajouter un ${entry.name}`" @click="bump(entry, 1)">+</button>
+                  </div>
+                </li>
+              </ul>
+            </template>
+          </section>
+
           <div class="order-box">
             <label class="qty-field">
               Quantité
               <input type="number" min="1" max="50" v-model.number="qty" />
             </label>
             <button type="button" class="btn primary" @click="handleAdd(true)">
-              Commander ce panier
+              {{ editingKey ? "Enregistrer mes changements" : "Commander ce panier" }}
             </button>
-            <button type="button" class="btn ghost" @click="handleAdd(false)">
+            <button v-if="!editingKey" type="button" class="btn ghost" @click="handleAdd(false)">
               Ajouter et continuer mes achats
             </button>
-            <a v-if="site.whatsappNumber" :href="whatsappOrderLink(panier.name)" target="_blank" rel="noreferrer" class="btn whatsapp">
+            <a v-if="site.whatsappNumber" :href="whatsappLink" target="_blank" rel="noreferrer" class="btn whatsapp">
               Commander sur WhatsApp
             </a>
           </div>
 
-          <div class="panier-detail-section">
+          <div v-if="!composition" class="panier-detail-section">
             <h2>Ce que contient ce panier</h2>
             <ul class="items-list">
               <li v-for="item in panier.items" :key="item">{{ item }}</li>
@@ -114,6 +247,158 @@ function handleAdd(goToCart) {
 </template>
 
 <style scoped>
+.composer {
+  margin: 24px 0;
+  padding: 20px 22px 22px;
+  background: #fff;
+  border: 2px solid var(--green);
+  border-radius: 16px;
+}
+
+.composer h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+.composer-help {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.composer-counter {
+  position: sticky;
+  top: 8px;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  background: var(--green-soft);
+  border: 1px solid var(--green-tint);
+  border-radius: 12px;
+}
+
+.composer-counter.full {
+  background: var(--green-tint);
+  border-color: var(--green);
+}
+
+.composer-counter-text {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  font-size: 14px;
+}
+
+.composer-counter-text strong {
+  font-size: 18px;
+  color: var(--green-dark);
+}
+
+.composer-bar {
+  height: 8px;
+  background: #fff;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.composer-bar span {
+  display: block;
+  height: 100%;
+  background: var(--green);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.composer-counter .link-btn {
+  justify-self: start;
+}
+
+.composer-group {
+  margin: 18px 0 8px;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--green-dark);
+}
+
+.composer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.composer-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.composer-list li.off {
+  opacity: 0.55;
+  background: #f6f4ef;
+}
+
+.composer-list li.on {
+  background: var(--green-soft);
+  border-color: var(--green);
+}
+
+.composer-name {
+  display: grid;
+  gap: 2px;
+}
+
+.composer-name small {
+  color: var(--muted);
+}
+
+.qty-stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.qty-stepper button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.qty-stepper button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.qty-stepper input {
+  width: 38px;
+  text-align: center;
+  border: 0;
+  font: inherit;
+  font-weight: 700;
+  -moz-appearance: textfield;
+}
+
+.qty-stepper input::-webkit-outer-spin-button,
+.qty-stepper input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
 .others {
   margin-top: 72px;
   padding-top: 40px;

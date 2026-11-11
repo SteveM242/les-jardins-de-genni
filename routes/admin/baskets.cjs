@@ -51,9 +51,12 @@ router.post("/", async (req, res) => {
   const items = input.items || [];
 
   const { rows } = await query(
-    `INSERT INTO baskets (slug, name, icon, price, summary, details, origin, item_count, items)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ${BASKET_COLUMNS}`,
-    [slug, input.name, "🧺", input.price, input.summary || "", input.details || "", input.origin || "", items.length, JSON.stringify(items)]
+    `INSERT INTO baskets (slug, name, icon, price, summary, details, origin, item_count, items, composition)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING ${BASKET_COLUMNS}`,
+    [
+      slug, input.name, "🧺", input.price, input.summary || "", input.details || "", input.origin || "",
+      input.itemCount ?? items.length, JSON.stringify(items), input.composition ? JSON.stringify(input.composition) : null
+    ]
   );
   res.json({ ok: true, basket: withImageUrl("baskets", rows[0]) });
 });
@@ -66,8 +69,13 @@ router.patch("/:id", async (req, res) => {
     return sendInvalid(res, err);
   }
 
-  const { rows: current } = await query("SELECT id, items FROM baskets WHERE id = $1", [req.params.id]);
+  const { rows: current } = await query("SELECT id, items, composition FROM baskets WHERE id = $1", [req.params.id]);
   if (!current[0]) return res.status(404).json({ ok: false, error: "Panier introuvable." });
+
+  // Sur un panier personnalisable, le contenu se modifie par sa composition (sinon les deux divergeraient).
+  if (current[0].composition && input.items && !input.composition && !input.clearComposition) {
+    return res.status(400).json({ ok: false, error: "Ce panier est personnalisable : modifiez sa composition plutôt que sa liste d'articles." });
+  }
 
   if (input.name && (await nameTaken(input.name, req.params.id))) {
     return res.status(409).json({ ok: false, error: "Un autre panier porte déjà ce nom." });
@@ -83,11 +91,13 @@ router.patch("/:id", async (req, res) => {
     `UPDATE baskets SET
        name = COALESCE($1, name), price = COALESCE($2, price), summary = COALESCE($3, summary),
        details = COALESCE($4, details), origin = COALESCE($5, origin), active = COALESCE($6, active),
-       items = COALESCE($7, items), item_count = COALESCE($8, item_count)
+       items = COALESCE($7, items), item_count = COALESCE($8, item_count),
+       composition = CASE WHEN $10::boolean THEN NULL ELSE COALESCE($11::jsonb, composition) END
      WHERE id = $9 RETURNING ${BASKET_COLUMNS}`,
     [
       input.name ?? null, input.price ?? null, input.summary ?? null, input.details ?? null, input.origin ?? null,
-      input.active ?? null, items ? JSON.stringify(items) : null, items ? items.length : null, req.params.id
+      input.active ?? null, items ? JSON.stringify(items) : null, items ? input.itemCount ?? items.length : null,
+      req.params.id, Boolean(input.clearComposition), input.composition ? JSON.stringify(input.composition) : null
     ]
   );
   if (!rows[0]) return res.status(404).json({ ok: false, error: "Panier introuvable." });
