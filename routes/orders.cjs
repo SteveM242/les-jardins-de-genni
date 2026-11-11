@@ -16,6 +16,9 @@ const {
 const { resolveLines, findPriceChanges } = require("../lib/cart.cjs");
 const { currentSales } = require("../lib/sales.cjs");
 const { subscribe } = require("../lib/reminders.cjs");
+const { StockError, demandFromLines, reserveStock } = require("../lib/stock.cjs");
+const payments = require("../lib/payments.cjs");
+const { baseUrlFor } = require("../lib/urls.cjs");
 
 const router = express.Router();
 
@@ -82,6 +85,8 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
   const fulfillment = customerInfo.fulfillment === "livraison" ? "livraison" : "retrait";
   const address = cleanText(customerInfo.address, 300);
   const notes = cleanText(customerInfo.notes, 500);
+  // Paiement en ligne : seulement si le site l'a activé ; sinon on paie au retrait.
+  const paymentMethod = customerInfo.paymentMethod === "en_ligne" && payments.isEnabled() ? "en_ligne" : "retrait";
 
   if (!name || !phone) {
     return res.status(400).json({ ok: false, error: "Nom et téléphone requis." });
@@ -139,6 +144,8 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
     discountCode = null;
     discountAmount = 0;
     await withTransaction(async (client) => {
+      // Stock : verrouillé et décrémenté dans la même transaction que la commande (jamais de survente).
+      await reserveStock(client, demandFromLines(items));
       if (req.body.discountCode) {
         const { rows } = await client.query(
           "SELECT * FROM discount_codes WHERE code = $1 AND active = true FOR UPDATE",
@@ -153,11 +160,11 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
 
       await client.query(
         `INSERT INTO orders
-          (order_number, customer_id, name, phone, email, fulfillment, address, notes, items, discount_code, subtotal, discount_amount, total, desired_date)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+          (order_number, customer_id, name, phone, email, fulfillment, address, notes, items, discount_code, subtotal, discount_amount, total, desired_date, payment_method)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
         [
           code, req.customer?.sub || null, name, phone, email, fulfillment, address, notes,
-          JSON.stringify(items), discountCode, subtotal, discountAmount, computeTotal(subtotal, discountAmount), desiredDate
+          JSON.stringify(items), discountCode, subtotal, discountAmount, computeTotal(subtotal, discountAmount), desiredDate, paymentMethod
         ]
       );
     });
@@ -177,6 +184,13 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
     }
   } catch (err) {
     if (err instanceof DiscountError) return res.status(400).json({ ok: false, error: err.message });
+    if (err instanceof StockError) {
+      return res.status(409).json({
+        ok: false,
+        code: "STOCK",
+        error: `${err.message} Mettez votre panier à jour avant de confirmer.`
+      });
+    }
     throw err;
   }
 
@@ -187,7 +201,20 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
   }
   sendOrderEmail(placed).catch((err) => console.error("[orders] échec envoi email:", err.message));
 
-  res.json({ ok: true, orderId: orderNumber, subtotal, discountAmount, total, customer: { name } });
+  // Paiement en ligne : la commande est déjà enregistrée ; si la session de paiement échoue, le client paiera au retrait.
+  let paymentUrl = null;
+  let paymentError = null;
+  if (paymentMethod === "en_ligne") {
+    try {
+      const session = await payments.createCheckoutSession({ orderNumber, total, email, name, baseUrl: baseUrlFor(req) });
+      paymentUrl = session.url;
+    } catch (err) {
+      console.error("[payments] session impossible:", err.message);
+      paymentError = "Le paiement en ligne est momentanément indisponible : votre commande est bien enregistrée, vous réglerez au retrait.";
+    }
+  }
+
+  res.json({ ok: true, orderId: orderNumber, subtotal, discountAmount, total, customer: { name }, paymentUrl, paymentError });
 });
 
 module.exports = router;

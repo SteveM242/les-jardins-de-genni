@@ -11,6 +11,7 @@ const { samePhone } = require("../lib/phone.cjs");
 const { passwordMatches, validPassword, PASSWORD_RULE } = require("../lib/passwords.cjs");
 const { baseUrlFor } = require("../lib/urls.cjs");
 const { subscribe } = require("../lib/reminders.cjs");
+const { AccountDataError, sanitizeAddresses, sanitizeFavorites } = require("../lib/accountData.cjs");
 
 const router = express.Router();
 
@@ -30,6 +31,8 @@ function publicCustomer(row, reminder = false) {
   return {
     defaultFulfillment: row.default_fulfillment === "livraison" ? "livraison" : "retrait",
     reminder,
+    addresses: Array.isArray(row.addresses) ? row.addresses : [],
+    favorites: Array.isArray(row.favorites) ? row.favorites : [],
     id: row.id,
     name: row.name,
     email: row.email,
@@ -232,6 +235,15 @@ router.patch("/account", requireRole("customer"), async (req, res) => {
   if (!name) return res.status(400).json({ ok: false, error: "Le nom est obligatoire." });
   const fulfillment = ["retrait", "livraison"].includes(req.body.defaultFulfillment) ? req.body.defaultFulfillment : null;
   const reminder = typeof req.body.reminder === "boolean" ? req.body.reminder : null;
+  let addresses = null;
+  let favorites = null;
+  try {
+    if (req.body.addresses !== undefined) addresses = sanitizeAddresses(req.body.addresses);
+    if (req.body.favorites !== undefined) favorites = sanitizeFavorites(req.body.favorites);
+  } catch (err) {
+    if (err instanceof AccountDataError) return res.status(400).json({ ok: false, error: err.message });
+    throw err;
+  }
 
   if (reminder === true) {
     const { rows: current } = await query("SELECT * FROM customers WHERE id = $1", [req.auth.sub]);
@@ -241,8 +253,11 @@ router.patch("/account", requireRole("customer"), async (req, res) => {
   }
 
   const { rows } = await query(
-    "UPDATE customers SET name = $1, phone = $2, address = $3, default_fulfillment = COALESCE($4, default_fulfillment) WHERE id = $5 RETURNING *",
-    [name, cleanText(req.body.phone, 40), cleanText(req.body.address, 300), fulfillment, req.auth.sub]
+    "UPDATE customers SET name = $1, phone = $2, address = $3, default_fulfillment = COALESCE($4, default_fulfillment), addresses = COALESCE($6::jsonb, addresses), favorites = COALESCE($7::jsonb, favorites) WHERE id = $5 RETURNING *",
+    [
+      name, cleanText(req.body.phone, 40), cleanText(req.body.address, 300), fulfillment, req.auth.sub,
+      addresses ? JSON.stringify(addresses) : null, favorites ? JSON.stringify(favorites) : null
+    ]
   );
   if (reminder === true) await subscribe({ query }, { email: rows[0].email, name: rows[0].name });
   else if (reminder === false) await query("DELETE FROM reminder_subscribers WHERE email = $1", [rows[0].email.toLowerCase()]);

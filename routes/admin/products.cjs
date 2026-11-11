@@ -40,15 +40,23 @@ router.post("/restock", async (_req, res) => {
 
 router.patch("/:id", async (req, res) => {
   const { name, unit, price, category, active, soldOut } = req.body;
+  // stock : entier >= 0, ou null / "" pour « illimité » ; absent = inchangé.
+  const stockGiven = Object.prototype.hasOwnProperty.call(req.body, "stock");
+  const stockRaw = req.body.stock;
+  const stock = stockRaw === null || stockRaw === "" ? null : Number(stockRaw);
+  if (stockGiven && stock !== null && (!Number.isInteger(stock) || stock < 0 || stock > 100000)) {
+    return res.status(400).json({ ok: false, error: "Le stock doit être un nombre entier positif (ou vide pour « illimité »)." });
+  }
   if (price != null && (!Number.isFinite(Number(price)) || Number(price) <= 0)) {
     return res.status(400).json({ ok: false, error: "Le prix doit être supérieur à 0." });
   }
   const { rows } = await query(
     `UPDATE products SET
        name = COALESCE($1, name), unit = COALESCE($2, unit), price = COALESCE($3, price),
-       category = COALESCE($4, category), active = COALESCE($5, active), sold_out = COALESCE($7, sold_out)
+       category = COALESCE($4, category), active = COALESCE($5, active), sold_out = COALESCE($7, sold_out),
+       stock = CASE WHEN $8::boolean THEN $9::int ELSE stock END
      WHERE id = $6 RETURNING ${PRODUCT_COLUMNS}`,
-    [name, unit, price, category, active, req.params.id, typeof soldOut === "boolean" ? soldOut : null]
+    [name, unit, price, category, active, req.params.id, typeof soldOut === "boolean" ? soldOut : null, stockGiven, stock]
   );
   if (!rows[0]) return res.status(404).json({ ok: false, error: "Article introuvable." });
   res.json({ ok: true, product: withImageUrl("products", rows[0]) });

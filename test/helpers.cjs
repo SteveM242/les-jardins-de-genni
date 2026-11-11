@@ -1,5 +1,8 @@
 const http = require("node:http");
 
+// Les tests envoient bien plus de commandes que la limite de production (20 par heure et par IP).
+process.env.ORDERS_RATE_LIMIT = process.env.ORDERS_RATE_LIMIT || "1000";
+
 // Remplace db.cjs par un faux : permet de tester les routes sans Postgres.
 // À appeler AVANT de require app.cjs / les routes.
 function installFakeDb(handler) {
@@ -44,7 +47,7 @@ async function startApp() {
     return { status: res.status, headers: res.headers, json, text };
   }
 
-  return { request, close: () => new Promise((resolve) => server.close(resolve)) };
+  return { base, request, close: () => new Promise((resolve) => server.close(resolve)) };
 }
 
 module.exports = { installFakeDb, startApp };

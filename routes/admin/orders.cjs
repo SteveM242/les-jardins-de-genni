@@ -6,6 +6,9 @@ const { numericId } = require("../../lib/params.cjs");
 const { normalizeOrderCode, formatOrderCode } = require("../../lib/orderCode.cjs");
 const { aggregatePrep } = require("../../lib/prep.cjs");
 const { toCsv } = require("../../lib/csv.cjs");
+const { releaseStock } = require("../../lib/stock.cjs");
+const { localToday } = require("../../lib/salesWindow.cjs");
+const { withTransaction } = require("../../db.cjs");
 
 const router = express.Router();
 router.param("id", numericId);
@@ -77,6 +80,57 @@ router.get("/code/:code", async (req, res) => {
   res.json({ ok: true, order: rows[0] });
 });
 
+// Commandes « prêtes » dont le client n'a pas encore été prévenu (message WhatsApp à envoyer à la main).
+router.get("/to-notify", async (_req, res) => {
+  const { rows } = await query(
+    `SELECT id, order_number, name, phone, total, desired_date, fulfillment
+     FROM orders WHERE status = 'prete' AND notified_at IS NULL ORDER BY created_at`
+  );
+  res.json({ ok: true, orders: rows });
+});
+
+// Clôture de la semaine : aperçu de ce qui sera fait, puis exécution.
+async function sessionSummary(db) {
+  const today = localToday();
+  const { rows } = await db.query(
+    `SELECT
+       COUNT(*) FILTER (WHERE status = 'prete')::int AS ready,
+       COUNT(*) FILTER (WHERE status IN ('nouvelle', 'confirmee'))::int AS unfinished
+     FROM orders WHERE desired_date IS NOT NULL AND desired_date <= $1`,
+    [today]
+  );
+  const { rows: soldOut } = await db.query("SELECT COUNT(*)::int AS n FROM products WHERE sold_out = true");
+  return { today, notRetrieved: rows[0]?.ready || 0, unfinished: rows[0]?.unfinished || 0, soldOutProducts: soldOut[0]?.n || 0 };
+}
+
+router.get("/session-summary", async (_req, res) => {
+  res.json({ ok: true, ...(await sessionSummary({ query })) });
+});
+
+router.post("/close-session", async (_req, res) => {
+  const today = localToday();
+  const result = await withTransaction(async (client) => {
+    // Commandes prêtes dont le jour de retrait est passé : non retirées.
+    const missed = await client.query(
+      "UPDATE orders SET status = 'non_retiree', updated_at = now() WHERE status = 'prete' AND desired_date IS NOT NULL AND desired_date <= $1",
+      [today]
+    );
+    // Nouvelle semaine : tout redevient disponible (les stocks chiffrés restent à ressaisir).
+    const restocked = await client.query("UPDATE products SET sold_out = false WHERE sold_out = true");
+    const { rows: baskets } = await client.query("SELECT id, composition FROM baskets WHERE composition IS NOT NULL");
+    let compositionsReset = 0;
+    for (const basket of baskets) {
+      const composition = typeof basket.composition === "string" ? JSON.parse(basket.composition) : basket.composition;
+      if (!composition?.entries?.some((entry) => entry.soldOut)) continue;
+      const cleaned = { ...composition, entries: composition.entries.map((entry) => ({ ...entry, soldOut: false })) };
+      await client.query("UPDATE baskets SET composition = $1 WHERE id = $2", [JSON.stringify(cleaned), basket.id]);
+      compositionsReset += 1;
+    }
+    return { notRetrieved: missed.rowCount || 0, restocked: restocked.rowCount || 0, compositionsReset };
+  });
+  res.json({ ok: true, ...result });
+});
+
 // Liste de préparation : quantités totales par article (paniers personnalisés compris) des commandes à préparer.
 // ?date=YYYY-MM-DD limite aux commandes à retirer ce jour-là.
 router.get("/prep", async (req, res) => {
@@ -142,7 +196,7 @@ router.get("/export.csv", async (req, res) => {
 router.patch("/:id", async (req, res) => {
   const status = req.body.status;
   const paid = req.body.paid;
-  if (status === undefined && typeof paid !== "boolean") {
+  if (status === undefined && typeof paid !== "boolean" && req.body.notified !== true) {
     return res.status(400).json({ ok: false, error: "Rien à modifier." });
   }
   if (status !== undefined && !ORDER_STATUSES.includes(status)) {
@@ -151,15 +205,23 @@ router.patch("/:id", async (req, res) => {
   const { rows: previous } = await query("SELECT status FROM orders WHERE id = $1", [req.params.id]);
   if (!previous[0]) return res.status(404).json({ ok: false, error: "Commande introuvable." });
 
+  // « Prévenu » : posé à la main (WhatsApp envoyé) ou automatiquement quand l'email « prête » part.
+  const notified = req.body.notified === true;
   const { rows } = await query(
     `UPDATE orders SET
        status = COALESCE($1, status),
        paid = COALESCE($2::boolean, paid),
        paid_at = CASE WHEN $2::boolean IS NULL THEN paid_at WHEN $2::boolean THEN COALESCE(paid_at, now()) ELSE NULL END,
+       notified_at = CASE WHEN $4::boolean OR ($1::text = 'prete' AND COALESCE(email, '') <> '') THEN COALESCE(notified_at, now()) ELSE notified_at END,
        updated_at = now()
      WHERE id = $3 RETURNING *`,
-    [status ?? null, typeof paid === "boolean" ? paid : null, req.params.id]
+    [status ?? null, typeof paid === "boolean" ? paid : null, req.params.id, notified]
   );
+
+  // Commande annulée : les articles suivis en stock reviennent au stock.
+  if (status === "annulee" && previous[0].status !== "annulee") {
+    releaseStock({ query }, rows[0].items).catch((err) => console.error("[orders] remise en stock impossible:", err.message));
+  }
 
   if (status !== undefined && previous[0].status !== status) {
     sendStatusEmail(rows[0]).catch((err) => console.error("[orders] échec email de statut:", err.message));

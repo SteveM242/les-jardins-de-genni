@@ -128,7 +128,7 @@ const slides = computed(() => (siteContent.state.gallery.length > 0 ? siteConten
   background: linear-gradient(180deg, rgba(42, 33, 25, 0.5) 0%, rgba(42, 33, 25, 0.82) 100%);
 }
 
-.hero-inner {
+.hero-inner > * {
   max-width: 640px;
 }
 

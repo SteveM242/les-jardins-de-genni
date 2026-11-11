@@ -5,6 +5,7 @@ const { parseDataUri } = require("../lib/images.cjs");
 const { normalizeStoredSocials, galleryImageUrl } = require("../lib/siteContent.cjs");
 const { sectionsFromRows, publicSections } = require("../lib/siteSections.cjs");
 const { salesStatus } = require("../lib/salesWindow.cjs");
+const payments = require("../lib/payments.cjs");
 
 const router = express.Router();
 router.param("id", numericId);
@@ -22,6 +23,7 @@ router.get("/site", async (_req, res) => {
   res.set("Cache-Control", "public, max-age=15");
   res.json({
     ok: true,
+    payments: { online: payments.isEnabled() },
     salesStatus: { ...salesStatus(sections.sales.mode), closedMessage: sections.sales.closedMessage },
     socials: normalizeStoredSocials(socials),
     gallery: gallery.map((row) => ({ id: row.id, caption: row.caption, url: galleryImageUrl(row) })),

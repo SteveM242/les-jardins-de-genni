@@ -15,5 +15,6 @@ router.use("/baskets", require("./baskets.cjs"));
 router.use("/discounts", require("./discounts.cjs"));
 router.use("/settings", require("./settings.cjs"));
 router.use("/gallery", require("./gallery.cjs"));
+router.use("/system", require("./system.cjs"));
 
 module.exports = router;

@@ -10,6 +10,8 @@ let insertFailures = 0;
 let basketCurrent = { id: 3, items: ["Mangues"] };
 let basketNameTaken = false;
 const soldOutProducts = new Set();
+const stocks = {}; // slug -> quantité disponible (absent = illimité)
+let closeSessionRows = { ready: 2, unfinished: 1 };
 let basketCurrentName = null;
 const imageBase64 = Buffer.from("fake-image-bytes").toString("base64");
 
@@ -23,7 +25,25 @@ installFakeDb(async (text, params = []) => {
       igname: { slug: "igname", name: "Igname", unit: "kg", price: "10.00" },
       mangue: { slug: "mangue", name: "Mangues", unit: "kg", price: "3.50" }
     };
-    return { rows: params[0].filter((slug) => catalog[slug]).map((slug) => ({ ...catalog[slug], sold_out: soldOutProducts.has(slug) })) };
+    return { rows: params[0].filter((slug) => catalog[slug]).map((slug) => ({ ...catalog[slug], sold_out: soldOutProducts.has(slug), stock: stocks[slug] ?? null })) };
+  }
+  if (sql.includes("SELECT name, stock FROM products WHERE slug = $1")) {
+    return { rows: [{ name: params[0], stock: stocks[params[0]] ?? null }] };
+  }
+  if (sql.includes("FROM orders WHERE status = 'prete' AND notified_at IS NULL")) {
+    return { rows: [{ id: 5, order_number: "ABC", name: "Awa", phone: "0696", total: "12.00", desired_date: "2026-11-18", fulfillment: "retrait" }] };
+  }
+  if (sql.includes("COUNT(*) FILTER (WHERE status = 'prete')")) return { rows: [closeSessionRows] };
+  if (sql.includes("SELECT COUNT(*)::int AS n FROM products WHERE sold_out")) return { rows: [{ n: 3 }] };
+  if (sql.includes("UPDATE orders SET status = 'non_retiree'")) return { rowCount: 2, rows: [] };
+  if (sql.includes("UPDATE products SET sold_out = false")) return { rowCount: 3, rows: [] };
+  if (sql.includes("SELECT id, composition FROM baskets WHERE composition IS NOT NULL")) {
+    return { rows: [{ id: 3, composition: { maxItems: 2, entries: [{ name: "A", qty: 1, max: 2, kind: "base", soldOut: true }] } }] };
+  }
+  if (sql.includes("FROM site_settings WHERE key = 'last_backup'")) return { rows: [{ value: { at: "2026-11-01T10:00:00.000Z" } }] };
+  if (sql.includes("SELECT * FROM orders ORDER BY id")) return { rows: [{ id: 1, order_number: "ABC" }] };
+  if (sql.includes("SELECT id, total FROM orders WHERE order_number")) {
+    return { rows: params[0] === "PAYME1" ? [{ id: 11, total: "20.00" }] : [] };
   }
   if (sql.includes("FROM baskets WHERE slug = ANY")) {
     const basket = { slug: "panier-decouverte", name: "Panier Découverte", price: "12.00", items: ["Mangues", "Christophines"] };
@@ -53,7 +73,8 @@ installFakeDb(async (text, params = []) => {
   if (sql.includes("SELECT name FROM baskets WHERE id")) return { rows: basketCurrentName ? [{ name: basketCurrentName }] : [] };
   if (sql.includes("INSERT INTO baskets") && sql.includes("SELECT $1, $2")) return { rows: [{ id: 9, slug: params[0], name: params[1], price: "34.00", active: false, items: [] }] };
   if (sql.includes("SELECT status FROM orders WHERE id")) return { rows: [{ status: "nouvelle" }] };
-  if (sql.includes("UPDATE orders SET")) return { rows: [{ id: 1, order_number: "ABC", name: "Awa", status: params[0] || "nouvelle", email: "" }] };
+  if (sql.includes("UPDATE orders SET paid = true")) return { rows: [] };
+  if (sql.includes("UPDATE orders SET")) return { rows: [{ id: 1, order_number: "ABC", name: "Awa", status: params[0] || "nouvelle", email: "", items: [{ type: "product", slug: "igname", qty: 2 }] }] };
   if (sql.includes("INSERT INTO reminder_subscribers")) return { rows: [] };
   if (sql.includes("DELETE FROM reminder_subscribers")) return { rowCount: params[0] === "a".repeat(32) ? 1 : 0, rows: [] };
   if (sql.includes("UPDATE baskets SET")) return { rows: [{ id: 3, name: params[0] || "Panier", price: params[1] || "10.00", active: params[5], items: [] }] };
@@ -351,11 +372,164 @@ test("export CSV : session admin requise, en-têtes et séparateur", async () =>
   assert.deepEqual(sql.params, ["2026-11-01", "2026-11-30", "livree"]);
 });
 
+const { http: paymentsHttp } = require("../lib/payments.cjs");
+const crypto = require("node:crypto");
+
+test("stock : quantité insuffisante signalée au panier, refusée à la commande, décrémentée sinon", async () => {
+  stocks.igname = 2;
+  try {
+    const check = await app.request("POST", "/api/cart/check", { body: { items: [{ key: "a", type: "product", slug: "igname", qty: 3 }] } });
+    assert.match(check.json.unavailable[0].reason, /Plus que 2/);
+    stocks.igname = 0;
+    const out = await app.request("POST", "/api/cart/check", { body: { items: [{ key: "a", type: "product", slug: "igname", qty: 1 }] } });
+    assert.match(out.json.unavailable[0].reason, /rupture/);
+
+    stocks.igname = 1;
+    const refused = await app.request("POST", "/api/orders", { body: { customer: orderBody.customer, items: [{ key: "a", type: "product", slug: "igname", qty: 2 }] } });
+    // Le panier est refusé dès la relecture (plus que 1) : jamais d'écriture.
+    assert.equal(refused.status, 409);
+    assert.ok(!calls.some((c) => c.text.includes("INSERT INTO orders")));
+
+    stocks.igname = 5;
+    calls.length = 0;
+    const ok = await app.request("POST", "/api/orders", { body: { customer: orderBody.customer, items: [{ key: "a", type: "product", slug: "igname", qty: 2 }] } });
+    assert.equal(ok.status, 200);
+    const decrement = calls.find((c) => c.text.includes("UPDATE products SET stock = stock - $1"));
+    assert.deepEqual(decrement.params, [2, "igname"]);
+  } finally {
+    delete stocks.igname;
+  }
+});
+
+test("annulation : les articles suivis reviennent en stock", async () => {
+  await app.request("PATCH", "/api/admin/orders/1", { cookie: adminCookie(), body: { status: "annulee" } });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const release = calls.find((c) => c.text.includes("UPDATE products SET stock = stock + $1"));
+  assert.deepEqual(release.params, [2, "igname"]);
+});
+
+test("clôture de la semaine : aperçu puis exécution (non retirées, ruptures remises à zéro)", async () => {
+  assert.equal((await app.request("POST", "/api/admin/orders/close-session")).status, 401);
+  const summary = await app.request("GET", "/api/admin/orders/session-summary", { cookie: adminCookie() });
+  assert.equal(summary.json.notRetrieved, 2);
+  assert.equal(summary.json.unfinished, 1);
+  assert.equal(summary.json.soldOutProducts, 3);
+  assert.equal(summary.json.today, "2026-11-14");
+
+  const done = await app.request("POST", "/api/admin/orders/close-session", { cookie: adminCookie() });
+  assert.equal(done.status, 200);
+  assert.deepEqual({ n: done.json.notRetrieved, r: done.json.restocked, c: done.json.compositionsReset }, { n: 2, r: 3, c: 1 });
+  const missed = calls.find((c) => c.text.includes("UPDATE orders SET status = 'non_retiree'"));
+  assert.deepEqual(missed.params, ["2026-11-14"]);
+  const composition = JSON.parse(calls.find((c) => c.text.includes("UPDATE baskets SET composition")).params[0]);
+  assert.equal(composition.entries[0].soldOut, false);
+});
+
+test("à prévenir : commandes prêtes non notifiées ; marquer prévenu à la main", async () => {
+  const list = await app.request("GET", "/api/admin/orders/to-notify", { cookie: adminCookie() });
+  assert.equal(list.json.orders[0].order_number, "ABC");
+  calls.length = 0;
+  const res = await app.request("PATCH", "/api/admin/orders/5", { cookie: adminCookie(), body: { notified: true } });
+  assert.equal(res.status, 200);
+  const update = calls.find((c) => c.text.includes("UPDATE orders SET"));
+  assert.match(update.text, /notified_at/);
+  assert.equal(update.params[3], true);
+});
+
+test("système : état de la configuration sans secret, sauvegarde en JSON sans mot de passe", async () => {
+  assert.equal((await app.request("GET", "/api/admin/system/health")).status, 401);
+  const health = await app.request("GET", "/api/admin/system/health", { cookie: adminCookie() });
+  assert.equal(health.json.smtp, false);
+  assert.equal(health.json.onlinePayment, false);
+  assert.equal(health.json.lastBackupAt, "2026-11-01T10:00:00.000Z");
+  assert.ok(!JSON.stringify(health.json).includes("SECRET"));
+
+  const test = await app.request("POST", "/api/admin/system/test-email", { cookie: adminCookie() });
+  assert.equal(test.status, 502);
+  assert.match(test.json.error, /pas configuré/);
+
+  assert.equal((await app.request("GET", "/api/admin/system/backup")).status, 401);
+  const backup = await app.request("GET", "/api/admin/system/backup", { cookie: adminCookie() });
+  assert.equal(backup.status, 200);
+  assert.match(backup.headers.get("content-disposition"), /sauvegarde-heritage-.*\.json/);
+  const data = JSON.parse(backup.text);
+  assert.ok(Array.isArray(data.orders) && Array.isArray(data.customers));
+  assert.ok(!backup.text.includes("password_hash"));
+  assert.ok(calls.some((c) => c.text.includes("INSERT INTO site_settings") && c.params[0].includes("at")));
+});
+
+test("paiement en ligne : désactivé sans clés, session créée et lien renvoyé quand activé", async () => {
+  // Sans clés : le choix « en ligne » retombe sur le paiement au retrait.
+  const off = await app.request("POST", "/api/orders", { body: { customer: { ...orderBody.customer, paymentMethod: "en_ligne" }, items: orderBody.items } });
+  assert.equal(off.json.paymentUrl, null);
+  assert.equal(calls.find((c) => c.text.includes("INSERT INTO orders")).params[14], "retrait");
+
+  process.env.STRIPE_SECRET_KEY = "sk_test_x";
+  process.env.STRIPE_WEBHOOK_SECRET = "whsec_x";
+  const realFetch = paymentsHttp.fetch;
+  let stripeCall = null;
+  paymentsHttp.fetch = async (url, init) => {
+    stripeCall = { url, body: init.body.toString(), auth: init.headers.authorization };
+    return { ok: true, status: 200, json: async () => ({ id: "cs_1", url: "https://checkout.stripe.test/pay/cs_1" }) };
+  };
+  try {
+    const site = await app.request("GET", "/api/site");
+    assert.equal(site.json.payments.online, true);
+    calls.length = 0;
+    const on = await app.request("POST", "/api/orders", { body: { customer: { ...orderBody.customer, paymentMethod: "en_ligne" }, items: orderBody.items } });
+    assert.equal(on.json.paymentUrl, "https://checkout.stripe.test/pay/cs_1");
+    assert.equal(calls.find((c) => c.text.includes("INSERT INTO orders")).params[14], "en_ligne");
+    assert.equal(stripeCall.auth, "Bearer sk_test_x");
+    assert.match(stripeCall.body, /unit_amount%5D=1000/); // 10,00 € = 1000 centimes
+    assert.match(stripeCall.body, /success_url=.*paiement%3Dok/);
+
+    // Échec de Stripe : la commande reste enregistrée, le client paiera au retrait.
+    paymentsHttp.fetch = async () => ({ ok: false, status: 500, json: async () => ({ error: { message: "boom" } }) });
+    const failed = await app.request("POST", "/api/orders", { body: { customer: { ...orderBody.customer, paymentMethod: "en_ligne" }, items: orderBody.items } });
+    assert.equal(failed.status, 200);
+    assert.equal(failed.json.paymentUrl, null);
+    assert.match(failed.json.paymentError, /au retrait/);
+  } finally {
+    paymentsHttp.fetch = realFetch;
+    delete process.env.STRIPE_SECRET_KEY;
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+  }
+});
+
+test("webhook Stripe : signature vérifiée, montant contrôlé, commande marquée payée", async () => {
+  process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+  const sign = (body, secret = "whsec_test", t = Math.floor(Date.now() / 1000)) =>
+    `t=${t},v1=${crypto.createHmac("sha256", secret).update(`${t}.${body}`).digest("hex")}`;
+  const event = (amount, ref = "PAYME1") =>
+    JSON.stringify({ type: "checkout.session.completed", data: { object: { id: "cs_9", payment_status: "paid", client_reference_id: ref, amount_total: amount } } });
+  const send = async (body, signature) => {
+    const res = await fetch(`${app.base}/api/payments/webhook`, { method: "POST", headers: { "content-type": "application/json", "stripe-signature": signature }, body });
+    return res.status;
+  };
+  try {
+    assert.equal(await send(event(2000), "t=1,v1=abc"), 400); // mauvaise signature
+    assert.equal(await send(event(2000), sign(event(2000), "autre-secret")), 400);
+    assert.ok(!calls.some((c) => c.text.includes("UPDATE orders SET paid = true")));
+
+    assert.equal(await send(event(1999), sign(event(1999))), 200); // montant différent : pas marquée payée
+    assert.ok(!calls.some((c) => c.text.includes("UPDATE orders SET paid = true")));
+
+    assert.equal(await send(event(2000), sign(event(2000))), 200);
+    const paid = calls.find((c) => c.text.includes("UPDATE orders SET paid = true"));
+    assert.deepEqual(paid.params, ["cs_9", 11]);
+
+    const old = sign(event(2000), "whsec_test", Math.floor(Date.now() / 1000) - 3600);
+    assert.equal(await send(event(2000), old), 400); // signature trop ancienne (rejeu)
+  } finally {
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+  }
+});
+
 test("paiement : une commande se marque payée sans changer son statut ; rien à modifier -> 400", async () => {
   const res = await app.request("PATCH", "/api/admin/orders/1", { cookie: adminCookie(), body: { paid: true } });
   assert.equal(res.status, 200);
   const update = calls.find((c) => c.text.includes("UPDATE orders SET"));
-  assert.deepEqual(update.params, [null, true, "1"]);
+  assert.deepEqual(update.params, [null, true, "1", false]);
   assert.equal((await app.request("PATCH", "/api/admin/orders/1", { cookie: adminCookie(), body: {} })).status, 400);
   assert.equal((await app.request("PATCH", "/api/admin/orders/1", { cookie: adminCookie(), body: { status: "non_retiree" } })).status, 200);
 });

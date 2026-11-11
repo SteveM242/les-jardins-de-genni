@@ -135,7 +135,6 @@ function handleAdd(goToCart) {
 <template>
   <div v-if="panier" class="panier-detail">
     <div class="container">
-      <RouterLink to="/#paniers" class="back-link">← Tous les paniers</RouterLink>
 
       <div class="panier-detail-grid">
         <div class="panier-detail-media">

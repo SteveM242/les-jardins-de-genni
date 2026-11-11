@@ -1,8 +1,9 @@
 const { createApp } = require("./app.cjs");
 const { migrate } = require("./migrate.cjs");
 const db = require("./db.cjs");
-const { isConfigured, sendReminderEmail } = require("./lib/mailer.cjs");
+const { isConfigured, sendReminderEmail, sendPickupReminderEmail } = require("./lib/mailer.cjs");
 const { sendClosingReminders } = require("./lib/reminders.cjs");
+const { sendPickupReminders } = require("./lib/pickupReminders.cjs");
 
 const port = process.env.PORT || 4173;
 
@@ -30,6 +31,11 @@ function startReminderScheduler() {
       });
     } catch (err) {
       console.error("[reminders] échec:", err.message);
+    }
+    try {
+      await sendPickupReminders(db, { send: sendPickupReminderEmail });
+    } catch (err) {
+      console.error("[pickup-reminders] échec:", err.message);
     }
   };
   setInterval(tick, 15 * 60 * 1000).unref();

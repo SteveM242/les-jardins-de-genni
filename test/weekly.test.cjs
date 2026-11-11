@@ -136,3 +136,98 @@ test("rupture : un article en rupture est retiré des choix et du panier d'origi
   assert.deepEqual(fixed.selection, [{ name: "B", qty: 1 }]);
   assert.match(fixed.changes[0], /rupture/);
 });
+
+const { sendPickupReminders } = require("../lib/pickupReminders.cjs");
+const { computeInsights } = require("../lib/stats.cjs");
+const { sanitizeAddresses, sanitizeFavorites, AccountDataError } = require("../lib/accountData.cjs");
+const { demandFromLines, publicStock } = require("../lib/stock.cjs");
+const { verifySignature } = require("../lib/payments.cjs");
+const cryptoLib = require("node:crypto");
+
+test("rappel de retrait : le mardi après-midi seulement, une fois par commande, un échec n'arrête pas les autres", async () => {
+  const claimed = [
+    { order_number: "AAA111", name: "A", email: "a@x.fr", total: "10.00", fulfillment: "retrait" },
+    { order_number: "BBB222", name: "B", email: "b@x.fr", total: "20.00", fulfillment: "livraison" }
+  ];
+  const calls = [];
+  const db = { query: async (text, params) => (calls.push({ text, params }), { rows: claimed }) };
+  const never = async () => assert.fail("aucun email attendu");
+  assert.equal(await sendPickupReminders(db, { send: never, now: at("2026-11-16T20:00:00Z") }), 0); // lundi
+  assert.equal(await sendPickupReminders(db, { send: never, now: at("2026-11-17T15:00:00Z") }), 0); // mardi 11 h
+
+  const sent = [];
+  const send = async (m) => {
+    if (m.to === "a@x.fr") throw new Error("boîte pleine");
+    sent.push(m);
+  };
+  assert.equal(await sendPickupReminders(db, { send, now: at("2026-11-17T17:00:00Z") }), 1); // mardi 13 h
+  assert.equal(sent[0].pickupDate, "2026-11-18");
+  assert.equal(sent[0].fulfillment, "livraison");
+  const update = calls.find((c) => c.text.includes("pickup_reminded_at"));
+  assert.match(update.text, /SKIP LOCKED/);
+  assert.deepEqual(update.params, ["2026-11-18"]);
+});
+
+test("indicateurs : fidélité, taux de retrait, sessions, paniers les plus vendus", () => {
+  const now = at("2026-11-20T12:00:00Z");
+  const day = (n) => new Date(now.getTime() - n * 24 * 3600 * 1000).toISOString();
+  const orders = [
+    { status: "livree", total: 30, created_at: day(2), desired_date: "2026-11-18", email: "A@x.fr", items: [{ type: "basket", name: "Familial", qty: 2 }] },
+    { status: "livree", total: 20, created_at: day(9), desired_date: "2026-11-11", email: "a@x.fr", items: [{ type: "basket", name: "Familial", qty: 1 }, { type: "product", name: "Igname", qty: 5 }] },
+    { status: "non_retiree", total: 10, created_at: day(3), desired_date: "2026-11-18", phone: "0696 12 34 56", items: [] },
+    { status: "annulee", total: 99, created_at: day(3), desired_date: "2026-11-18", email: "z@x.fr", items: [] },
+    { status: "livree", total: 5, created_at: day(120), desired_date: "2026-07-01", email: "old@x.fr", items: [] }
+  ];
+  const insights = computeInsights(orders, now);
+  assert.equal(insights.customers, 2); // a@x.fr (2 commandes) et le téléphone ; annulée et trop ancienne exclues
+  assert.equal(insights.returningCustomers, 1);
+  assert.equal(insights.returningRate, 50);
+  assert.equal(insights.pickupRate, 67); // 2 remises, 1 non retirée
+  assert.deepEqual(insights.sessions[0], { day: "2026-11-18", orders: 2, revenue: 40 });
+  assert.deepEqual(insights.topBaskets, [{ name: "Familial", qty: 3 }]);
+  assert.equal(computeInsights([], now).pickupRate, null);
+});
+
+test("adresses et favoris : limites, doublons et valeurs nettoyées", () => {
+  assert.deepEqual(sanitizeAddresses([{ label: " Maison ", address: " 12 rue des Mornes " }, { address: "Bureau, Ducos" }]), [
+    { label: "Maison", address: "12 rue des Mornes" },
+    { label: "Adresse", address: "Bureau, Ducos" }
+  ]);
+  assert.throws(() => sanitizeAddresses([{ address: "" }]), AccountDataError);
+  assert.throws(() => sanitizeAddresses([{ address: "A" }, { address: "a" }]), AccountDataError);
+  assert.throws(() => sanitizeAddresses(Array.from({ length: 6 }, (_, i) => ({ address: `adresse ${i}` }))), AccountDataError);
+  assert.throws(() => sanitizeAddresses("n'importe quoi"), AccountDataError);
+
+  assert.deepEqual(sanitizeFavorites([{ type: "basket", slug: "a" }, { type: "basket", slug: "a" }, { type: "autre", slug: "b" }, { type: "product", slug: "" }, { type: "product", slug: "igname" }]), [
+    { type: "basket", slug: "a" },
+    { type: "product", slug: "igname" }
+  ]);
+});
+
+test("stock : demandes agrégées (produits et paniers sur mesure), affichage public", () => {
+  const demand = demandFromLines([
+    { type: "product", slug: "igname", qty: 2 },
+    { type: "custom", qty: 2, contents: [{ slug: "igname", qty: 1 }, { slug: "mangue", qty: 3 }] },
+    { type: "basket", slug: "familial", qty: 5 }
+  ]);
+  assert.deepEqual([...demand.entries()].sort(), [["igname", 4], ["mangue", 6]]);
+  assert.deepEqual(publicStock({ sold_out: false, stock: null }), { soldOut: false, left: null });
+  assert.deepEqual(publicStock({ sold_out: false, stock: 0 }), { soldOut: true, left: null });
+  assert.deepEqual(publicStock({ sold_out: false, stock: 3 }), { soldOut: false, left: 3 });
+  assert.deepEqual(publicStock({ sold_out: false, stock: 40 }), { soldOut: false, left: null }); // le stock exact n'est pas public
+  assert.equal(publicStock({ sold_out: true, stock: 40 }).soldOut, true);
+});
+
+test("signature Stripe : valide, mauvaise, trop ancienne, en-tête absent", () => {
+  const secret = "whsec_demo";
+  const body = '{"type":"x"}';
+  const t = 1700000000;
+  const v1 = cryptoLib.createHmac("sha256", secret).update(`${t}.${body}`).digest("hex");
+  const now = t * 1000 + 10_000;
+  assert.equal(verifySignature(body, `t=${t},v1=${v1}`, secret, { now }), true);
+  assert.equal(verifySignature(body + " ", `t=${t},v1=${v1}`, secret, { now }), false);
+  assert.equal(verifySignature(body, `t=${t},v1=${v1}`, "autre", { now }), false);
+  assert.equal(verifySignature(body, `t=${t},v1=${v1}`, secret, { now: now + 3600_000 }), false);
+  assert.equal(verifySignature(body, "", secret, { now }), false);
+  assert.equal(verifySignature(body, `t=${t},v1=court`, secret, { now }), false);
+});

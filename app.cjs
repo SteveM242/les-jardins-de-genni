@@ -43,6 +43,9 @@ function createApp() {
     })
   );
 
+  // Webhook Stripe : corps brut (signature), donc avant express.json().
+  app.post("/api/payments/webhook", express.raw({ type: "*/*", limit: "200kb" }), require("./routes/paymentsWebhook.cjs"));
+
   app.use(express.json({ limit: "100kb" }));
   app.use(cookieParser());
 
