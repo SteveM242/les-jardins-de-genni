@@ -1,10 +1,10 @@
-const crypto = require("node:crypto");
 const express = require("express");
 const { query, withTransaction } = require("../db.cjs");
 const { attachCustomer } = require("../auth.cjs");
 const rateLimits = require("../lib/rateLimits.cjs");
 const { cleanText } = require("../lib/text.cjs");
 const { sendOrderEmail } = require("../lib/mailer.cjs");
+const { generateOrderCode } = require("../lib/orderCode.cjs");
 const {
   DiscountError,
   computeSubtotal,
@@ -113,11 +113,13 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
   const items = lines.map(({ key: _key, ...line }) => line);
 
   const subtotal = computeSubtotal(items);
-  const orderNumber = crypto.randomUUID().slice(0, 8).toUpperCase();
 
   let discountCode = null;
   let discountAmount = 0;
-  try {
+
+  async function insertOrder(code) {
+    discountCode = null;
+    discountAmount = 0;
     await withTransaction(async (client) => {
       if (req.body.discountCode) {
         const { rows } = await client.query(
@@ -136,20 +138,33 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
           (order_number, customer_id, name, phone, email, fulfillment, address, notes, items, discount_code, subtotal, discount_amount, total, desired_date)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
         [
-          orderNumber, req.customer?.sub || null, name, phone, email, fulfillment, address, notes,
+          code, req.customer?.sub || null, name, phone, email, fulfillment, address, notes,
           JSON.stringify(items), discountCode, subtotal, discountAmount, computeTotal(subtotal, discountAmount), desiredDate
         ]
       );
     });
+  }
+
+  // Le code est unique (contrainte en base) : en cas de collision très rare, on en tire un autre.
+  let orderNumber = null;
+  try {
+    for (let attempt = 1; !orderNumber; attempt += 1) {
+      const candidate = generateOrderCode();
+      try {
+        await insertOrder(candidate);
+        orderNumber = candidate;
+      } catch (err) {
+        if (err.code !== "23505" || attempt >= 5) throw err;
+      }
+    }
   } catch (err) {
     if (err instanceof DiscountError) return res.status(400).json({ ok: false, error: err.message });
     throw err;
   }
 
   const total = computeTotal(subtotal, discountAmount);
-  sendOrderEmail({
-    orderNumber, name, phone, email, fulfillment, address, notes, items, subtotal, discountAmount, total, desiredDate
-  }).catch((err) => console.error("[orders] échec envoi email:", err.message));
+  const placed = { orderNumber, name, phone, email, fulfillment, address, notes, items, subtotal, discountAmount, total, desiredDate };
+  sendOrderEmail(placed).catch((err) => console.error("[orders] échec envoi email:", err.message));
 
   res.json({ ok: true, orderId: orderNumber, subtotal, discountAmount, total, customer: { name } });
 });

@@ -8,6 +8,7 @@ import PasswordField from "../../components/PasswordField.vue";
 import BackLink from "../../components/BackLink.vue";
 import LoadError from "../../components/LoadError.vue";
 import CartLineContents from "../../components/CartLineContents.vue";
+import { formatOrderCode } from "../../utils/orderCode.js";
 
 const router = useRouter();
 const auth = useAuth();
@@ -55,7 +56,7 @@ async function claimOrder() {
     return;
   }
   toast.success(
-    res.data.alreadyYours ? "Cette commande est déjà dans votre compte." : `Commande ${res.data.orderNumber} ajoutée à votre compte.`
+    res.data.alreadyYours ? "Cette commande est déjà dans votre compte." : `Commande ${formatOrderCode(res.data.orderNumber)} ajoutée à votre compte.`
   );
   claim.orderNumber = "";
   claim.phone = "";
@@ -198,13 +199,13 @@ function formatDate(iso) {
       <form class="claim-card" @submit.prevent="claimOrder">
         <h2>Retrouver une commande</h2>
         <p class="muted">
-          Vous avez commandé sans compte, ou sans email ? Saisissez le numéro de commande reçu à la confirmation et le téléphone
+          Vous avez commandé sans compte, ou sans email ? Saisissez le code de commande reçu à la confirmation (ex : K7M-4QH) et le téléphone
           utilisé à ce moment-là.
         </p>
         <div class="claim-fields">
           <label>
-            Numéro de commande
-            <input v-model.trim="claim.orderNumber" type="text" placeholder="ex: A1B2C3D4" autocomplete="off" required />
+            Code de commande
+            <input v-model.trim="claim.orderNumber" type="text" placeholder="ex: K7M-4QH" autocomplete="off" required />
           </label>
           <label>
             Téléphone de la commande
@@ -228,7 +229,7 @@ function formatDate(iso) {
         <div v-for="order in orders" :key="order.order_number" class="order-row">
           <div class="order-row-head">
             <div>
-              <strong>Commande {{ order.order_number }}</strong>
+              <strong>Code {{ formatOrderCode(order.order_number) }}</strong>
               <span class="order-date">{{ formatDate(order.created_at) }}</span>
             </div>
             <span class="status-badge" :class="`status-${order.status}`">{{ statusLabels[order.status] || order.status }}</span>

@@ -44,6 +44,13 @@ import WeeklyRhythm from "../components/WeeklyRhythm.vue";
           </p>
         </div>
         <div class="detail-card">
+          <h3>Votre code de retrait</h3>
+          <p>
+            Chaque commande reçoit un code personnel (ex : <strong>K7M-4QH</strong>), affiché à la validation et envoyé par email
+            si vous en avez donné un. Gardez-le : le jour du retrait, il suffit de le donner pour être servi.
+          </p>
+        </div>
+        <div class="detail-card">
           <h3>Retrait le mercredi</h3>
           <p>
             Les commandes passées pendant la session (samedi → lundi soir) sont à récupérer le mercredi. Précisez

@@ -6,6 +6,7 @@ import CartLineContents from "../../components/CartLineContents.vue";
 import { api } from "../../api.js";
 import { customerWhatsappLink } from "../../data/site.js";
 import { useToast } from "../../stores/toast.js";
+import { formatOrderCode } from "../../utils/orderCode.js";
 
 const toast = useToast();
 
@@ -94,6 +95,42 @@ function handleNewCount(count) {
   document.title = count > 0 ? `(${count}) Commandes à traiter — Espace pro` : "Espace pro — L'Héritage des Mornes";
 }
 
+// ---------- Retrait : servir une commande à partir de son code ----------
+const pickupCode = ref("");
+const pickupOrder = ref(null);
+const pickupError = ref("");
+const pickupLoading = ref(false);
+
+async function findByCode() {
+  const code = pickupCode.value.trim();
+  if (!code) return;
+  pickupLoading.value = true;
+  pickupError.value = "";
+  pickupOrder.value = null;
+  const res = await api(`/api/admin/orders/code/${encodeURIComponent(code)}`);
+  pickupLoading.value = false;
+  if (res.ok) pickupOrder.value = res.data.order;
+  else pickupError.value = res.error || "Code introuvable.";
+}
+
+async function handOver() {
+  const order = pickupOrder.value;
+  const res = await api(`/api/admin/orders/${order.id}`, { method: "PATCH", body: { status: "livree" } });
+  if (!res.ok) {
+    toast.error(res.error);
+    return;
+  }
+  toast.success(`Commande ${formatOrderCode(order.order_number)} remise à ${order.name}.`);
+  pickupOrder.value = res.data.order;
+  await loadOrders({ silent: true });
+}
+
+function clearPickup() {
+  pickupCode.value = "";
+  pickupOrder.value = null;
+  pickupError.value = "";
+}
+
 const orders = ref([]);
 const counts = ref({ all: 0 });
 const total = ref(0);
@@ -151,7 +188,7 @@ async function updateStatus(order, status) {
     await loadOrders({ silent: true });
     return;
   }
-  toast.success(`Commande ${order.order_number} : ${statusLabels[status].toLowerCase()}.`);
+  toast.success(`Commande ${formatOrderCode(order.order_number)} : ${statusLabels[status].toLowerCase()}.`);
   // La commande peut sortir du filtre actif et les compteurs changent : on recharge.
   await loadOrders({ silent: true });
 }
@@ -252,9 +289,59 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
+    <section class="pickup" aria-labelledby="pickup-title">
+      <h2 id="pickup-title">Servir une commande (retrait)</h2>
+      <p class="pickup-help">Le client donne son code : tapez-le pour retrouver sa commande et le servir.</p>
+      <form class="pickup-form" @submit.prevent="findByCode">
+        <input
+          v-model="pickupCode"
+          type="text"
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
+          placeholder="Code : K7M-4QH"
+          aria-label="Code de commande du client"
+        />
+        <button type="submit" class="btn primary" :disabled="pickupLoading || !pickupCode.trim()">Retrouver</button>
+        <button v-if="pickupCode || pickupOrder" type="button" class="btn ghost" @click="clearPickup">Effacer</button>
+      </form>
+      <p v-if="pickupError" class="pickup-error" role="alert">{{ pickupError }}</p>
+
+      <article v-if="pickupOrder" class="pickup-result" :class="`is-${pickupOrder.status}`">
+        <div class="pickup-result-head">
+          <div>
+            <strong class="pickup-name">{{ pickupOrder.name }}</strong>
+            <span class="pickup-code">Code {{ formatOrderCode(pickupOrder.order_number) }}</span>
+          </div>
+          <span class="status-badge" :class="`status-${pickupOrder.status}`">{{ statusLabels[pickupOrder.status] }}</span>
+        </div>
+        <p class="muted">
+          <a :href="`tel:${pickupOrder.phone}`">{{ pickupOrder.phone }}</a>
+          <template v-if="pickupOrder.email"> · {{ pickupOrder.email }}</template>
+          · {{ pickupOrder.fulfillment === "livraison" ? "Livraison" : "Retrait" }}
+        </p>
+        <p v-if="pickupOrder.fulfillment === 'livraison' && pickupOrder.address" class="muted">{{ pickupOrder.address }}</p>
+        <div v-for="(item, index) in pickupOrder.items" :key="index" class="order-line">
+          <p><strong>{{ item.qty }} x {{ item.name }}</strong></p>
+          <CartLineContents :line="item" open />
+        </div>
+        <p v-if="pickupOrder.notes" class="notes">{{ pickupOrder.notes }}</p>
+        <p class="pickup-total">À encaisser : <strong>{{ pickupOrder.total }} €</strong></p>
+
+        <p v-if="pickupOrder.status === 'livree'" class="pickup-warn">Cette commande a déjà été remise.</p>
+        <p v-else-if="pickupOrder.status === 'annulee'" class="pickup-warn">Cette commande a été annulée : ne pas servir.</p>
+        <template v-else>
+          <p v-if="pickupOrder.status !== 'prete'" class="pickup-warn">
+            Cette commande n'est pas encore marquée « Prête » (statut : {{ statusLabels[pickupOrder.status] }}).
+          </p>
+          <button type="button" class="btn primary" @click="handOver">✓ Remettre la commande</button>
+        </template>
+      </article>
+    </section>
+
     <label class="search-field">
       <span class="sr-only">Rechercher une commande</span>
-      <input v-model="search" type="search" placeholder="Rechercher : n° de commande, nom, téléphone, email" />
+      <input v-model="search" type="search" placeholder="Rechercher : code de commande, nom, téléphone, email" />
     </label>
 
     <div class="filters" role="group" aria-label="Filtrer par statut">
@@ -288,7 +375,7 @@ onBeforeUnmount(() => {
       <article v-for="order in orders" :key="order.id" class="order-card" :class="{ 'is-new': order.status === 'nouvelle' }">
         <div class="order-header">
           <div>
-            <strong class="order-number">Commande {{ order.order_number }}</strong>
+            <strong class="order-number">Code {{ formatOrderCode(order.order_number) }}</strong>
             <span class="order-date">{{ formatDate(order.created_at) }}</span>
           </div>
           <span class="status-badge" :class="`status-${order.status}`">{{ statusLabels[order.status] }}</span>
@@ -331,7 +418,7 @@ onBeforeUnmount(() => {
 
         <div class="order-footer">
           <a
-            :href="customerWhatsappLink(order.phone, `Bonjour ${order.name}, c'est L'Héritage des Mornes à propos de votre commande ${order.order_number}.`)"
+            :href="customerWhatsappLink(order.phone, `Bonjour ${order.name}, c'est L'Héritage des Mornes à propos de votre commande (code ${formatOrderCode(order.order_number)}).`)"
             target="_blank"
             rel="noreferrer"
             class="btn ghost whatsapp-link"
@@ -340,7 +427,7 @@ onBeforeUnmount(() => {
           </a>
           <select
             :value="order.status"
-            :aria-label="`Statut de la commande ${order.order_number}`"
+            :aria-label="`Statut de la commande ${formatOrderCode(order.order_number)}`"
             @change="updateStatus(order, $event.target.value)"
           >
             <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
@@ -366,6 +453,90 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.pickup {
+  background: #fff;
+  border: 2px solid var(--green);
+  border-radius: 16px;
+  padding: 18px 20px 20px;
+  margin-bottom: 24px;
+}
+
+.pickup h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.pickup-help {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.pickup-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pickup-form input {
+  flex: 1 1 200px;
+  font: inherit;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+}
+
+.pickup-error {
+  margin: 12px 0 0;
+  color: var(--hibiscus);
+  font-weight: 600;
+}
+
+.pickup-result {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: var(--green-soft);
+  border: 1px solid var(--green-tint);
+}
+
+.pickup-result.is-annulee {
+  background: #fdecee;
+  border-color: #f4c3c8;
+}
+
+.pickup-result-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.pickup-name {
+  display: block;
+  font-size: 20px;
+}
+
+.pickup-code {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pickup-total {
+  margin: 12px 0;
+  font-size: 18px;
+}
+
+.pickup-warn {
+  margin: 0 0 12px;
+  font-weight: 600;
+  color: var(--clay-dark);
+}
 h1 {
   font-size: 24px;
   margin: 0 0 20px;

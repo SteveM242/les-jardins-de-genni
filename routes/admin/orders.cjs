@@ -3,6 +3,7 @@ const { query } = require("../../db.cjs");
 const { escapeLike } = require("../../lib/text.cjs");
 const { sendStatusEmail } = require("../../lib/mailer.cjs");
 const { numericId } = require("../../lib/params.cjs");
+const { normalizeOrderCode } = require("../../lib/orderCode.cjs");
 
 const router = express.Router();
 router.param("id", numericId);
@@ -26,7 +27,14 @@ router.get("/", async (req, res) => {
   if (search) {
     params.push(`%${escapeLike(search)}%`);
     const p = `$${params.length}`;
-    conditions.push(`(order_number ILIKE ${p} OR name ILIKE ${p} OR phone ILIKE ${p} OR email ILIKE ${p})`);
+    // « K7M-4QH » retrouve la commande K7M4QH : on cherche aussi le code sans tiret ni espace.
+    const code = normalizeOrderCode(search);
+    let codeMatch = "";
+    if (code.length >= 3) {
+      params.push(`%${escapeLike(code)}%`);
+      codeMatch = `order_number ILIKE $${params.length} OR `;
+    }
+    conditions.push(`(${codeMatch}order_number ILIKE ${p} OR name ILIKE ${p} OR phone ILIKE ${p} OR email ILIKE ${p})`);
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
@@ -52,6 +60,15 @@ router.get("/", async (req, res) => {
     pageSize: PAGE_SIZE,
     total: totalRows[0].n
   });
+});
+
+// Retrait : le client donne son code, on retrouve sa commande (et donc la personne à servir).
+router.get("/code/:code", async (req, res) => {
+  const code = normalizeOrderCode(req.params.code);
+  if (!code) return res.status(400).json({ ok: false, error: "Saisissez le code de commande." });
+  const { rows } = await query("SELECT * FROM orders WHERE order_number = $1", [code]);
+  if (!rows[0]) return res.status(404).json({ ok: false, error: "Aucune commande avec ce code." });
+  res.json({ ok: true, order: rows[0] });
 });
 
 router.patch("/:id", async (req, res) => {

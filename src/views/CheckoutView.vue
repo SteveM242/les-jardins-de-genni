@@ -7,6 +7,8 @@ import { useAuth } from "../stores/auth.js";
 import { site, whatsappCartLink, whatsappOrderConfirmLink } from "../data/site.js";
 import CartLineContents from "../components/CartLineContents.vue";
 import WeeklyRhythm from "../components/WeeklyRhythm.vue";
+import PickupCode from "../components/PickupCode.vue";
+import { formatOrderCode, saveLastOrder, loadLastOrder } from "../utils/orderCode.js";
 import { useSiteContent } from "../stores/siteContent.js";
 
 const cart = useCart();
@@ -53,6 +55,8 @@ const modeInfo = computed(() =>
 const status = ref("idle"); // idle | sending | success | error
 const errorMessage = ref("");
 const lastOrder = ref(null);
+// Code de la dernière commande de cet appareil : rappelé si l'onglet a été fermé entre-temps.
+const previousOrder = ref(loadLastOrder());
 
 const discountInput = ref("");
 const discount = ref(null); // { code, amount }
@@ -249,6 +253,8 @@ async function submitOrder() {
   }
 
   lastOrder.value = { ...res.data, fulfillment: form.fulfillment };
+  saveLastOrder({ code: res.data.orderId, name: res.data.customer?.name, total: res.data.total });
+  previousOrder.value = null;
   cart.clear();
   discount.value = null;
   discountInput.value = "";
@@ -267,12 +273,15 @@ async function submitOrder() {
 
       <div v-if="status === 'success'" class="success-box" role="status">
         <h2>Commande envoyée, merci {{ lastOrder?.customer?.name }} !</h2>
-        <p>
-          Numéro de commande : <strong>{{ lastOrder?.orderId }}</strong> — total {{ formatPrice(lastOrder?.total || 0) }} €.
-          Notez-le : il vous servira si vous nous contactez. L'Héritage des Mornes va vous recontacter pour confirmer la disponibilité et le
-          {{ lastOrder?.fulfillment === "livraison" ? "créneau de livraison" : "retrait" }}.
-          Rappel : la vente ferme le lundi soir et les commandes se récupèrent le <strong>mercredi</strong>.
-        </p>
+        <PickupCode v-if="lastOrder?.orderId" :code="lastOrder.orderId" />
+        <ol class="code-steps">
+          <li><strong>Gardez ce code</strong> : faites une capture d'écran ou notez-le (il est aussi envoyé par email si vous en avez donné un).</li>
+          <li>
+            <strong>Le mercredi</strong>, donnez-le à L'Héritage des Mornes
+            {{ lastOrder?.fulfillment === "livraison" ? "à la livraison" : "au retrait" }} : il permet de retrouver votre commande et de vous servir tout de suite.
+          </li>
+          <li>Total à régler sur place : <strong>{{ formatPrice(lastOrder?.total || 0) }} €</strong>. La vente ferme le lundi soir.</li>
+        </ol>
         <div class="success-actions">
           <a
             v-if="site.whatsappNumber"
@@ -288,7 +297,7 @@ async function submitOrder() {
         </div>
         <p v-if="!auth.state.customer" class="account-hint">
           <RouterLink to="/compte/inscription">Créez un compte</RouterLink> pour suivre cette commande : une fois connecté·e, utilisez
-          « Retrouver une commande » avec le numéro <strong>{{ lastOrder?.orderId }}</strong> et votre téléphone.
+          « Retrouver une commande » avec le code <strong>{{ formatOrderCode(lastOrder?.orderId) }}</strong> et votre téléphone.
           Si vous avez donné un email, confirmez-le simplement et vos commandes seront ajoutées automatiquement.
         </p>
       </div>
@@ -303,6 +312,7 @@ async function submitOrder() {
 
         <div v-if="cart.items.value.length === 0" class="empty-box">
           <p>Votre panier est vide pour le moment.</p>
+          <PickupCode v-if="previousOrder" :code="previousOrder.code" title="Votre dernier code de retrait" compact class="previous-code" />
           <div class="success-actions">
             <RouterLink to="/#paniers" class="btn primary">Voir les paniers</RouterLink>
             <RouterLink to="/composer" class="btn ghost">Composer mon panier</RouterLink>
@@ -723,6 +733,23 @@ h1 {
 .empty-box p {
   color: var(--muted);
   margin: 0 0 20px;
+}
+
+.code-steps {
+  text-align: left;
+  max-width: 520px;
+  margin: 22px auto 26px;
+  padding-left: 22px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.code-steps li {
+  margin-bottom: 8px;
+}
+
+.previous-code {
+  margin-bottom: 22px;
 }
 
 .success-actions {

@@ -1,4 +1,5 @@
 import { reactive } from "vue";
+import { formatOrderCode } from "../utils/orderCode.js";
 
 // Informations du site. Les coordonnées (WhatsApp, email, commune, horaires) sont saisies par L'Héritage des Mornes dans
 // l'espace pro (« Contenu du site ») et injectées ici au chargement (voir stores/siteContent.js) :
@@ -52,7 +53,7 @@ export const site = reactive({
       },
       {
         title: "3. Récupérez votre commande le mercredi",
-        text: "Les commandes sont préparées après la clôture et à récupérer le mercredi. L'Héritage des Mornes vous confirme l'heure et le lieu."
+        text: "À la validation, vous recevez un code de retrait (ex : K7M-4QH). Le mercredi, donnez-le : il permet de retrouver votre commande et de vous servir."
       }
     ];
   }
@@ -71,7 +72,7 @@ export function whatsappGeneralLink() {
 }
 
 export function whatsappOrderConfirmLink(orderNumber, customerName) {
-  return whatsappLink(`Bonjour L'Héritage des Mornes, c'est ${customerName || "un·e client·e"}. Je viens de passer la commande ${orderNumber} sur le site.`);
+  return whatsappLink(`Bonjour L'Héritage des Mornes, c'est ${customerName || "un·e client·e"}. Je viens de passer commande sur le site, mon code de retrait est ${formatOrderCode(orderNumber)}.`);
 }
 
 // Lien WhatsApp vers un·e client·e à partir du téléphone saisi à la commande.

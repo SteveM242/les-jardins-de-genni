@@ -5,6 +5,8 @@ const { installFakeDb, startApp } = require("./helpers.cjs");
 const calls = [];
 let discountRow = null;
 let revokedAdmin = false;
+let orderByCode = { id: 7, order_number: "K7M4QH", name: "Awa", status: "prete" };
+let insertFailures = 0;
 const imageBase64 = Buffer.from("fake-image-bytes").toString("base64");
 
 // Faux Postgres : répond selon un fragment du SQL, et garde la trace des requêtes.
@@ -23,6 +25,11 @@ installFakeDb(async (text, params = []) => {
     const basket = { slug: "panier-decouverte", name: "Panier Découverte", price: "12.00", items: ["Mangues", "Christophines"] };
     return { rows: params[0].includes("panier-decouverte") ? [basket] : [] };
   }
+  if (sql.includes("INSERT INTO orders") && insertFailures > 0) {
+    insertFailures -= 1;
+    throw Object.assign(new Error("duplicate key"), { code: "23505" });
+  }
+  if (sql.includes("FROM orders WHERE order_number")) return { rows: orderByCode && params[0] === orderByCode.order_number ? [orderByCode] : [] };
   if (sql.includes("FROM discount_codes")) return { rows: discountRow ? [discountRow] : [] };
   if (sql.includes("SELECT image FROM products")) {
     return { rows: params[0] === "igname" ? [{ image: `data:image/png;base64,${imageBase64}` }] : [] };
@@ -44,6 +51,7 @@ test.beforeEach(() => {
   calls.length = 0;
   discountRow = null;
   revokedAdmin = false;
+  insertFailures = 0;
 });
 
 const adminCookie = () => `admin_token=${signToken({ sub: 1, role: "admin", v: 0 })}`;
@@ -295,4 +303,28 @@ test("jour souhaité : passé, trop lointain ou invalide -> 400 sans commande", 
     assert.match(res.json.error, /jour souhaité|jours/i);
     assert.ok(!calls.some((c) => c.text.includes("INSERT INTO orders")));
   }
+});
+
+test("retrait : le code retrouve la commande, avec ou sans tiret", async () => {
+  const ok = await app.request("GET", "/api/admin/orders/code/k7m-4qh", { cookie: adminCookie() });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.order.name, "Awa");
+  assert.equal((await app.request("GET", "/api/admin/orders/code/ZZZ999", { cookie: adminCookie() })).status, 404);
+  assert.equal((await app.request("GET", "/api/admin/orders/code/K7M4QH")).status, 401);
+});
+
+test("la recherche admin accepte un code saisi avec un tiret", async () => {
+  await app.request("GET", "/api/admin/orders?q=k7m-4qh", { cookie: adminCookie() });
+  const list = calls.find((c) => c.text.includes("SELECT * FROM orders"));
+  assert.deepEqual(list.params, ["%k7m-4qh%", "%K7M4QH%"]);
+});
+
+test("une commande reçoit un code de retrait, retiré au sort à nouveau en cas de doublon", async () => {
+  insertFailures = 2;
+  const res = await app.request("POST", "/api/orders", {
+    body: { customer: { name: "Awa", phone: "0696123456" }, items: [{ type: "product", slug: "igname", qty: 1 }] }
+  });
+  assert.equal(res.status, 200);
+  assert.match(res.json.orderId, /^[A-HJKMNP-Z2-9]{6}$/);
+  assert.equal(calls.filter((c) => c.text.includes("INSERT INTO orders")).length, 3);
 });

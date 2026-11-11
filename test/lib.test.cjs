@@ -71,3 +71,23 @@ test("normalizePhone / samePhone : formats français et indicatif Martinique éq
   assert.ok(!samePhone("", ""), "deux numéros vides ne sont pas identiques");
   assert.ok(!samePhone("1234", "1234"), "trop court pour être un vrai téléphone");
 });
+
+const { ALPHABET, generateOrderCode, normalizeOrderCode, formatOrderCode } = require("../lib/orderCode.cjs");
+
+test("un code de commande fait 6 caractères sans caractères ambigus", () => {
+  assert.ok(!/[01OIL]/.test(ALPHABET));
+  const codes = new Set();
+  for (let i = 0; i < 200; i += 1) {
+    const code = generateOrderCode();
+    assert.match(code, /^[A-HJKMNP-Z2-9]{6}$/);
+    codes.add(code);
+  }
+  assert.ok(codes.size > 195);
+});
+
+test("le code se saisit avec ou sans tiret, en minuscules", () => {
+  assert.equal(normalizeOrderCode(" k7m-4qh "), "K7M4QH");
+  assert.equal(normalizeOrderCode(undefined), "");
+  assert.equal(formatOrderCode("K7M4QH"), "K7M-4QH");
+  assert.equal(formatOrderCode("A1B2C3D4"), "A1B2C3D4");
+});
