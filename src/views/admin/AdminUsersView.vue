@@ -436,7 +436,7 @@ th {
 }
 
 .dialog::backdrop {
-  background: rgba(6, 30, 18, 0.55);
+  background: rgba(42, 33, 25, 0.55);
 }
 
 .dialog form {

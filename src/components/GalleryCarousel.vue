@@ -123,6 +123,7 @@ onBeforeUnmount(() => {
 }
 
 .slide img {
+  filter: sepia(0.38) saturate(0.82) hue-rotate(-10deg) contrast(1.02);
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -136,7 +137,7 @@ onBeforeUnmount(() => {
   right: 0;
   bottom: 0;
   padding: 48px 24px 20px;
-  background: linear-gradient(180deg, transparent, rgba(6, 30, 18, 0.78));
+  background: linear-gradient(180deg, transparent, rgba(42, 33, 25, 0.8));
   color: #fff;
   font-family: "Fraunces", Georgia, serif;
   font-size: clamp(16px, 2.2vw, 22px);

@@ -103,11 +103,29 @@ const slides = computed(() => (siteContent.state.gallery.length > 0 ? siteConten
 <style scoped>
 .hero {
   position: relative;
+  isolation: isolate;
   padding: 100px 0 80px;
   border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(8, 40, 22, 0.55) 0%, rgba(6, 30, 18, 0.8) 100%),
-    url("/images/hero-jardin.webp") center/cover no-repeat;
+  background: #2a2119;
   color: #fff;
+}
+
+/* Photo étalonnée chaud (sépia léger) + voile brun : plus de bandeau vert sur une page terracotta. */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: url("/images/hero-jardin.webp") center/cover no-repeat;
+  filter: sepia(0.55) saturate(0.8) hue-rotate(-14deg);
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgba(42, 33, 25, 0.5) 0%, rgba(42, 33, 25, 0.82) 100%);
 }
 
 .hero-inner {
