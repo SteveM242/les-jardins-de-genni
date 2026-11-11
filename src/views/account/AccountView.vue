@@ -878,6 +878,7 @@ h2 {
 }
 
 .claim-card {
+  margin-top: 28px;
   display: grid;
   gap: 14px;
   margin-bottom: 40px;
