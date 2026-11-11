@@ -67,6 +67,23 @@ function bump(entry, delta) {
   choice[entry.name] = next;
 }
 
+// Remplacement en un geste : la quantité de l'article passe sur un autre, dans la limite de son maximum.
+function swapTargets(entry) {
+  if (!composition.value || !(choice[entry.name] > 0)) return [];
+  return composition.value.entries.filter((other) => other.name !== entry.name && choice[other.name] < other.max);
+}
+
+function swapWith(entry, event) {
+  const target = composition.value.entries.find((other) => other.name === event.target.value);
+  event.target.value = "";
+  if (!target) return;
+  const moved = Math.min(choice[entry.name], target.max - choice[target.name]);
+  if (moved <= 0) return;
+  choice[entry.name] -= moved;
+  choice[target.name] += moved;
+  toast.success(`${moved} × ${entry.name} remplacé${moved > 1 ? "s" : ""} par ${target.name}.`);
+}
+
 // Saisie directe : jamais au-delà du maximum de l'article ni du total autorisé.
 function setFromInput(entry, event) {
   const wanted = Math.floor(Number(event.target.value));
@@ -136,8 +153,8 @@ function handleAdd(goToCart) {
             <p class="composer-help">
               Ce panier contient <strong>{{ composition.maxItems }} articles</strong>. Vous pouvez remplacer un article par un autre
               ou en prendre en double, <strong>sans changer le prix</strong>, tant que le total ne dépasse pas
-              {{ composition.maxItems }} articles<template v-if="composition.requireFull"> (le panier doit être <strong>complet</strong> pour être commandé)</template>. Pour remplacer un article : mettez-le à <strong>0</strong>, puis choisissez
-              1 ou 2 dans les articles de remplacement.
+              {{ composition.maxItems }} articles<template v-if="composition.requireFull"> (le panier doit être <strong>complet</strong> pour être commandé)</template>. Pour remplacer un article, utilisez « Remplacer par… » : n'importe quel article peut être
+              remplacé par un autre.
             </p>
 
             <div class="composer-counter" :class="{ full: remaining === 0 }" role="status" aria-live="polite">
@@ -159,6 +176,11 @@ function handleAdd(goToCart) {
                   <strong>{{ entry.name }}</strong>
                   <small v-if="entry.note">{{ entry.note }}</small>
                 </div>
+                <select v-if="swapTargets(entry).length" class="swap-select" :aria-label="`Remplacer ${entry.name} par`" @change="swapWith(entry, $event)">
+                  <option value="">Remplacer par…</option>
+                  <option v-for="other in swapTargets(entry)" :key="other.name" :value="other.name">{{ other.name }}</option>
+                </select>
+
                 <div class="qty-stepper">
                   <button type="button" :disabled="choice[entry.name] <= 0" :aria-label="`Retirer un ${entry.name}`" @click="bump(entry, -1)">−</button>
                   <input type="number" min="0" :max="entry.max" :value="choice[entry.name]" :aria-label="`Quantité de ${entry.name}`" @change="setFromInput(entry, $event)" />
@@ -251,6 +273,16 @@ function handleAdd(goToCart) {
 </template>
 
 <style scoped>
+.swap-select {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  max-width: 150px;
+}
+
 .composer {
   margin: 24px 0;
   padding: 20px 22px 22px;
