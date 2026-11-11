@@ -172,6 +172,30 @@ main:focus {
   }
 }
 
+/* Bouton texte (liens d'action : « Retirer », « Supprimer »…) utilisable partout. */
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 4px 2px;
+  color: var(--clay-dark);
+  text-decoration: underline;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* Écrans tactiles : zones de toucher d'au moins 44 px pour les actions principales. */
+@media (pointer: coarse) {
+  .btn,
+  .link-btn {
+    min-height: 44px;
+  }
+
+  .link-btn {
+    padding: 10px 6px;
+  }
+}
+
 /* ---------- Photos d'ambiance ---------- */
 
 /* Étalonnage chaud : les photos de bandeau (très vertes) se fondent dans la palette terre et crème. */

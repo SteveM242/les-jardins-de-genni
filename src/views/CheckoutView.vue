@@ -33,6 +33,15 @@ const salesMessage = computed(() => {
   );
 });
 const pickupDate = computed(() => siteContent.state.sales?.pickupDate || "");
+const onlinePayment = computed(() => Boolean(siteContent.state.payments?.online));
+const savedAddresses = computed(() => auth.state.customer?.addresses || []);
+
+// Retour de la page de paiement de la banque (?paiement=ok | annule&code=…).
+const paymentReturn = computed(() => {
+  const result = route.query.paiement;
+  if (result !== "ok" && result !== "annule") return null;
+  return { result, code: typeof route.query.code === "string" ? route.query.code : "" };
+});
 
 function formatDay(day) {
   return new Date(`${day}T00:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
@@ -47,6 +56,7 @@ const form = reactive({
   address: "",
   notes: "",
   reminder: false, // rappel du lundi par email
+  paymentMethod: "retrait", // "retrait" (payer sur place) | "en_ligne" (carte)
   website: "" // honeypot — doit rester vide
 });
 
@@ -239,7 +249,8 @@ async function submitOrder() {
         fulfillment: form.fulfillment,
         address: form.fulfillment === "livraison" ? form.address : "",
         notes: form.notes,
-        reminder: form.reminder && Boolean(form.email.trim())
+        reminder: form.reminder && Boolean(form.email.trim()),
+        paymentMethod: onlinePayment.value ? form.paymentMethod : "retrait"
       },
       items: cart.toPayload(),
       discountCode: discount.value?.code || "",
@@ -256,6 +267,12 @@ async function submitOrder() {
       return;
     }
     // Le panier a changé entre la relecture et l'envoi : on remet le client devant ce qui a bougé.
+    if (res.status === 409 && res.data?.code === "STOCK") {
+      review.confirmed = false;
+      errorMessage.value = res.error;
+      await runReview();
+      return;
+    }
     if (res.status === 409 && (res.data?.unavailable || res.data?.priceChanges || res.data?.adjusted)) {
       absorbServerCheck({
         unavailable: res.data.unavailable || [],
@@ -273,6 +290,8 @@ async function submitOrder() {
     return;
   }
 
+  // Paiement par carte : on vide le panier (la commande est enregistrée) puis on envoie le client chez Stripe.
+  const paymentUrl = res.data.paymentUrl;
   lastOrder.value = { ...res.data, fulfillment: form.fulfillment };
   saveLastOrder({ code: res.data.orderId, name: res.data.customer?.name, total: res.data.total });
   previousOrder.value = null;
@@ -282,6 +301,7 @@ async function submitOrder() {
   notices.value = [];
   status.value = "success";
   window.scrollTo({ top: 0 });
+  if (paymentUrl) window.location.href = paymentUrl;
 }
 </script>
 
@@ -297,8 +317,22 @@ async function submitOrder() {
         Vous pouvez préparer votre panier dès maintenant : il sera conservé sur cet appareil.
       </p>
 
+      <div v-if="paymentReturn && status !== 'success'" class="payment-return" :class="paymentReturn.result" role="status">
+        <template v-if="paymentReturn.result === 'ok'">
+          <strong>✓ Paiement reçu, merci !</strong>
+          <span>Votre commande est réglée. Gardez votre code de retrait.</span>
+        </template>
+        <template v-else>
+          <strong>Paiement non terminé.</strong>
+          <span>Votre commande est bien enregistrée : vous pouvez la régler au retrait.</span>
+        </template>
+        <PickupCode v-if="paymentReturn.code" :code="paymentReturn.code" compact />
+      </div>
+
       <div v-if="status === 'success'" class="success-box" role="status">
         <h2>Commande envoyée, merci {{ lastOrder?.customer?.name }} !</h2>
+        <p v-if="lastOrder?.paymentUrl" class="payment-redirect">Redirection vers le paiement sécurisé…</p>
+        <p v-if="lastOrder?.paymentError" class="form-error" role="alert">{{ lastOrder.paymentError }}</p>
         <PickupCode v-if="lastOrder?.orderId" :code="lastOrder.orderId" />
         <ol class="code-steps">
           <li><strong>Gardez ce code</strong> : faites une capture d'écran ou notez-le (il est aussi envoyé par email si vous en avez donné un).</li>
@@ -512,12 +546,23 @@ async function submitOrder() {
 
               <p v-if="modeInfo" class="mode-info">{{ modeInfo }}</p>
 
+              <fieldset v-if="onlinePayment" class="payment-field">
+                <legend>Paiement</legend>
+                <label class="radio"><input v-model="form.paymentMethod" type="radio" value="retrait" /> Payer sur place, au retrait</label>
+                <label class="radio"><input v-model="form.paymentMethod" type="radio" value="en_ligne" /> Payer maintenant par carte (sécurisé)</label>
+              </fieldset>
+
               <p v-if="pickupDate" class="pickup-date">
                 🧺 {{ form.fulfillment === "livraison" ? "Livraison" : "Retrait" }} le <strong>{{ formatDay(pickupDate) }}</strong>
                 (une seule date par session de vente).
               </p>
 
               <div v-if="form.fulfillment === 'livraison'" class="field">
+                <label v-if="savedAddresses.length" for="f-saved" class="saved-label">Mes adresses enregistrées</label>
+                <select v-if="savedAddresses.length" id="f-saved" class="saved-select" @change="form.address = $event.target.value; $event.target.value = ''">
+                  <option value="">Choisir une adresse…</option>
+                  <option v-for="saved in savedAddresses" :key="saved.address" :value="saved.address">{{ saved.label }} — {{ saved.address }}</option>
+                </select>
                 <label for="f-address">Adresse de livraison *</label>
                 <textarea
                   id="f-address"
@@ -619,6 +664,10 @@ async function submitOrder() {
                     <dt>Email</dt>
                     <dd>{{ form.email }}</dd>
                   </template>
+                  <template v-if="onlinePayment">
+                    <dt>Paiement</dt>
+                    <dd>{{ form.paymentMethod === "en_ligne" ? "Par carte, en ligne" : "Sur place, au retrait" }}</dd>
+                  </template>
                   <template v-if="pickupDate">
                     <dt>{{ form.fulfillment === "livraison" ? "Livraison" : "Retrait" }}</dt>
                     <dd>{{ formatDay(pickupDate) }}</dd>
@@ -676,6 +725,47 @@ async function submitOrder() {
   border: 1.5px solid var(--clay);
   display: grid;
   gap: 4px;
+}
+
+.payment-field {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.payment-field legend {
+  font-weight: 700;
+  font-size: 14px;
+  padding: 0 4px;
+}
+
+.payment-return {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--ok-soft);
+}
+
+.payment-return.annule {
+  background: #fdf0e6;
+}
+
+.saved-select {
+  font: inherit;
+  padding: 9px 10px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.saved-label {
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .pickup-date {

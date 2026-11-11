@@ -18,7 +18,7 @@ const customParagraphs = computed(() =>
   <div class="about">
     <div class="container about-grid">
       <div class="about-media">
-        <img class="warm-photo" src="/images/about-martinique.webp" alt="Culture de bananes et canne à sucre en Martinique" />
+        <img class="warm-photo" src="/images/about-martinique.webp" srcset="/images/about-martinique-480.webp 480w, /images/about-martinique.webp 900w" sizes="(max-width: 800px) 92vw, 480px" decoding="async" alt="Culture de bananes et canne à sucre en Martinique" />
       </div>
 
       <div class="about-body">

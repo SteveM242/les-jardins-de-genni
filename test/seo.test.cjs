@@ -93,3 +93,23 @@ test("la page d'un panier contient ses balises de partage (si dist/ est construi
     await app.close();
   }
 });
+
+test("données structurées : produit pour un panier, organisation pour l'accueil, rien pour une page privée", () => {
+  const basket = { name: "Panier Familial", summary: "16 articles", price: 34, image: "/images/panier-peyi-classique.webp" };
+  const html = renderHtml("<head><!--app-meta--></head>", metaFor("/panier/panier-familial", basket), { baseUrl: "https://ex.fr", pathname: "/panier/panier-familial" });
+  const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+  assert.equal(ld["@type"], "Product");
+  assert.equal(ld.offers.price, "34");
+  assert.equal(ld.offers.priceCurrency, "EUR");
+  assert.equal(ld.image, "https://ex.fr/images/panier-peyi-classique.webp");
+  assert.match(html, /og:type" content="product"/);
+
+  const home = renderHtml("<head><!--app-meta--></head>", metaFor("/"), { baseUrl: "https://ex.fr", pathname: "/" });
+  assert.match(home, /"@type":"Organization"/);
+  const priv = renderHtml("<head><!--app-meta--></head>", metaFor("/commande"), { baseUrl: "https://ex.fr", pathname: "/commande" });
+  assert.ok(!priv.includes("ld+json"));
+
+  // Un nom de panier ne peut pas fermer la balise script.
+  const evil = renderHtml("<!--app-meta-->", metaFor("/panier/x", { ...basket, name: "</script><b>" }), { baseUrl: "https://ex.fr", pathname: "/panier/x" });
+  assert.ok(!evil.includes("</script><b>"));
+});

@@ -11,15 +11,18 @@ import { formatOrderCode } from "../../utils/orderCode.js";
 import { useCart } from "../../stores/cart.js";
 import { useSiteContent } from "../../stores/siteContent.js";
 import PickupCode from "../../components/PickupCode.vue";
+import { useCatalog } from "../../stores/catalog.js";
 
 const router = useRouter();
 const route = useRoute();
 const auth = useAuth();
 const siteContent = useSiteContent();
+const catalog = useCatalog();
 
 // Trois onglets, mémorisés dans l'adresse (?onglet=…) : commandes, informations, sécurité et données.
 const TABS = [
   { key: "commandes", label: "Mes commandes" },
+  { key: "favoris", label: "Mes favoris" },
   { key: "informations", label: "Mes informations" },
   { key: "securite", label: "Sécurité et données" }
 ];
@@ -39,8 +42,39 @@ const profile = reactive({
   phone: auth.state.customer?.phone || "",
   address: auth.state.customer?.address || "",
   defaultFulfillment: auth.state.customer?.defaultFulfillment || "retrait",
-  reminder: Boolean(auth.state.customer?.reminder)
+  reminder: Boolean(auth.state.customer?.reminder),
+  addresses: (auth.state.customer?.addresses || []).map((entry) => ({ ...entry }))
 });
+
+function addAddress() {
+  if (profile.addresses.length >= 5) return toast.error("5 adresses au plus.");
+  profile.addresses.push({ label: "", address: "" });
+}
+
+// ---------- Favoris : paniers et articles marqués d'un cœur ----------
+const favorites = computed(() =>
+  (auth.state.customer?.favorites || [])
+    .map((fav) => (fav.type === "basket" ? catalog.findBasketBySlug(fav.slug) : catalog.findProductBySlug(fav.slug)))
+    .filter(Boolean)
+);
+
+function addFavoriteToCart(item) {
+  if (item.soldOut) return toast.error("Cet article est en rupture cette semaine.");
+  if (item.type === "basket" && item.composition) {
+    router.push(`/panier/${item.slug}`);
+    return;
+  }
+  cart.addItem(item, 1);
+  toast.success(`« ${item.name} » ajouté au panier.`);
+}
+
+async function removeFavorite(item) {
+  try {
+    await auth.toggleFavorite({ type: item.type, slug: item.slug });
+  } catch (err) {
+    toast.error(err.message);
+  }
+}
 const profileError = ref("");
 
 // Email non confirmé : les commandes passées sans compte ne sont pas encore rattachées.
@@ -136,10 +170,12 @@ async function loadOrders() {
 // La page « Mon compte » relit le compte : le rappel du lundi et le mode par défaut viennent du serveur.
 onMounted(async () => {
   siteContent.load();
+  catalog.load();
   const customer = await auth.fetchMe();
   if (customer) {
     profile.defaultFulfillment = customer.defaultFulfillment || "retrait";
     profile.reminder = Boolean(customer.reminder);
+    profile.addresses = (customer.addresses || []).map((entry) => ({ ...entry }));
   }
   await loadOrders();
 });
@@ -384,6 +420,28 @@ function formatDate(iso) {
         </form>
       </div>
 
+      <!-- Mes favoris -->
+      <section v-else-if="tab === 'favoris'" role="tabpanel" aria-label="Mes favoris">
+        <h2>Mes favoris</h2>
+        <p v-if="favorites.length === 0" class="muted">
+          Vous n'avez pas encore de favori. Touchez le cœur ♡ sur un panier ou un article pour le retrouver ici.
+        </p>
+        <ul v-else class="fav-list">
+          <li v-for="item in favorites" :key="item.type + item.slug">
+            <div>
+              <strong>{{ item.name }}</strong>
+              <span class="muted">{{ item.type === "basket" ? "Panier" : "À la carte" }} · {{ item.price }} €</span>
+              <span v-if="item.soldOut" class="fav-soldout">Rupture cette semaine</span>
+            </div>
+            <div class="fav-actions">
+              <RouterLink v-if="item.type === 'basket'" :to="`/panier/${item.slug}`" class="btn ghost">Voir</RouterLink>
+              <button type="button" class="btn primary" :disabled="item.soldOut" @click="addFavoriteToCart(item)">Ajouter au panier</button>
+              <button type="button" class="link-btn" @click="removeFavorite(item)">Retirer</button>
+            </div>
+          </li>
+        </ul>
+      </section>
+
       <!-- Mes informations -->
       <section v-else-if="tab === 'informations'" class="settings" role="tabpanel" aria-label="Mes informations">
         <form class="settings-card" @submit.prevent="saveProfile">
@@ -401,6 +459,17 @@ function formatDate(iso) {
             Adresse de livraison
             <textarea v-model.trim="profile.address" rows="2" autocomplete="street-address"></textarea>
           </label>
+
+          <fieldset class="prefs addresses">
+            <legend>Mes adresses de livraison</legend>
+            <p v-if="!profile.addresses.length" class="muted">Aucune adresse enregistrée en plus de celle ci-dessus.</p>
+            <div v-for="(entry, index) in profile.addresses" :key="index" class="address-row">
+              <input v-model.trim="entry.label" type="text" maxlength="40" placeholder="Nom (Maison, Bureau…)" aria-label="Nom de l'adresse" />
+              <input v-model.trim="entry.address" type="text" maxlength="300" placeholder="Adresse complète" aria-label="Adresse" />
+              <button type="button" class="link-btn" :aria-label="`Supprimer l'adresse ${index + 1}`" @click="profile.addresses.splice(index, 1)">Supprimer</button>
+            </div>
+            <button type="button" class="btn ghost small" @click="addAddress">+ Ajouter une adresse</button>
+          </fieldset>
 
           <fieldset class="prefs">
             <legend>Mode de réception habituel</legend>
@@ -582,6 +651,67 @@ function formatDate(iso) {
 .active-info p {
   margin: 0;
   font-size: 14px;
+}
+
+.fav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.fav-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.fav-list li > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.fav-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.fav-soldout {
+  color: var(--hibiscus);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.address-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.address-row input {
+  min-width: 0;
+}
+
+.btn.small {
+  padding: 8px 14px;
+  font-size: 13px;
+  justify-self: start;
+}
+
+@media (max-width: 640px) {
+  .address-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .header-buttons {

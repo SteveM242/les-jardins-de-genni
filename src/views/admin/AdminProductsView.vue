@@ -179,6 +179,17 @@ onMounted(load);
               />
               En vente
             </label>
+            <label class="stock-field">
+              Stock
+              <input
+                type="number"
+                min="0"
+                inputmode="numeric"
+                placeholder="illimité"
+                :value="product.stock ?? ''"
+                @change="updateProduct(product, { stock: $event.target.value === '' ? null : Number($event.target.value) })"
+              />
+            </label>
             <label class="active-toggle soldout-toggle">
               <input
                 type="checkbox"
@@ -210,6 +221,21 @@ onMounted(load);
 .product-card.soldout {
   opacity: 0.8;
   outline: 2px dashed var(--clay);
+}
+
+.stock-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.stock-field input {
+  width: 84px;
+  font: inherit;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
 }
 
 .soldout-toggle {

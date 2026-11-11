@@ -8,6 +8,7 @@ import { site, whatsappOrderLink, whatsappBasketLink } from "../data/site.js";
 import { useCart } from "../stores/cart.js";
 import LoadError from "../components/LoadError.vue";
 import PanierCard from "../components/PanierCard.vue";
+import { srcsetFor } from "../utils/images.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -138,7 +139,7 @@ function handleAdd(goToCart) {
 
       <div class="panier-detail-grid">
         <div class="panier-detail-media">
-          <img v-if="panier.image" :src="panier.image" :alt="panier.name" />
+          <img v-if="panier.image" :src="panier.image" :srcset="srcsetFor(panier.image)" sizes="(max-width: 800px) 92vw, 480px" :alt="panier.name" decoding="async" />
           <span v-else class="panier-detail-placeholder" aria-hidden="true">{{ panier.icon || "🧺" }}</span>
           <span v-if="panier.image" class="panier-detail-icon" aria-hidden="true">{{ panier.icon }}</span>
         </div>

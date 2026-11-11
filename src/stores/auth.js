@@ -28,8 +28,8 @@ async function login({ email, password }) {
 }
 
 // defaultFulfillment ("retrait" | "livraison") et reminder (rappel du lundi) sont facultatifs.
-async function updateProfile({ name, phone, address, defaultFulfillment, reminder }) {
-  const res = await api("/api/account", { method: "PATCH", body: { name, phone, address, defaultFulfillment, reminder } });
+async function updateProfile({ name, phone, address, defaultFulfillment, reminder, addresses }) {
+  const res = await api("/api/account", { method: "PATCH", body: { name, phone, address, defaultFulfillment, reminder, addresses } });
   if (!res.ok) throw new Error(res.error || "Enregistrement impossible.");
   state.customer = res.data.customer;
   return state.customer;
@@ -47,6 +47,22 @@ async function deleteAccount({ currentPassword, eraseOrders }) {
   const res = await api("/api/account", { method: "DELETE", body: { currentPassword, eraseOrders } });
   if (!res.ok) throw new Error(res.error || "Suppression impossible.");
   state.customer = null;
+}
+
+// Ajoute ou retire un favori (enregistré dans le compte). Renvoie true si l'élément est maintenant favori.
+async function toggleFavorite({ type, slug }) {
+  const customer = state.customer;
+  if (!customer) throw new Error("Connectez-vous pour gérer vos favoris.");
+  const current = customer.favorites || [];
+  const exists = current.some((fav) => fav.type === type && fav.slug === slug);
+  const favorites = exists ? current.filter((fav) => !(fav.type === type && fav.slug === slug)) : [...current, { type, slug }];
+  const res = await api("/api/account", {
+    method: "PATCH",
+    body: { name: customer.name, phone: customer.phone, address: customer.address, favorites }
+  });
+  if (!res.ok) throw new Error(res.error || "Impossible de modifier vos favoris.");
+  state.customer = res.data.customer;
+  return !exists;
 }
 
 async function changePassword({ currentPassword, newPassword }) {
@@ -85,6 +101,7 @@ export function useAuth() {
     changePassword,
     changeEmail,
     deleteAccount,
+    toggleFavorite,
     verifyEmail,
     resendVerification,
     claimOrder

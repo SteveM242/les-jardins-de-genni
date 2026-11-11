@@ -2,6 +2,8 @@
 import { computed, ref } from "vue";
 import { site, whatsappOrderLink } from "../data/site.js";
 import { useCart } from "../stores/cart.js";
+import FavoriteButton from "./FavoriteButton.vue";
+import { srcsetFor } from "../utils/images.js";
 
 const props = defineProps({
   panier: {
@@ -35,8 +37,9 @@ function handleAdd() {
 <template>
   <article class="panier-card">
     <div class="media">
-      <img v-if="panier.image" :src="panier.image" :alt="panier.name" loading="lazy" />
+      <img v-if="panier.image" :src="panier.image" :srcset="srcsetFor(panier.image)" sizes="(max-width: 700px) 92vw, 360px" :alt="panier.name" loading="lazy" decoding="async" />
       <span v-else class="placeholder" aria-hidden="true">{{ panier.icon || "🧺" }}</span>
+      <span class="fav-slot"><FavoriteButton type="basket" :slug="panier.slug" :name="panier.name" /></span>
       <span class="count-chip">{{ panier.itemCount }} article{{ panier.itemCount > 1 ? "s" : "" }}</span>
     </div>
 
@@ -112,6 +115,13 @@ function handleAdd() {
   aspect-ratio: 4 / 3;
   background: var(--brand-tint);
   overflow: hidden;
+}
+
+.fav-slot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
 }
 
 .media img {

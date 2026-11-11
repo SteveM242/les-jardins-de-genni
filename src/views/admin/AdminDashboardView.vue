@@ -39,6 +39,48 @@ async function loadStats() {
   if (res.ok) stats.value = res.data;
 }
 
+// ---------- À prévenir : commandes prêtes dont le client n'a pas encore été averti ----------
+const toNotify = ref([]);
+
+async function loadToNotify() {
+  const res = await api("/api/admin/orders/to-notify");
+  if (res.ok) toNotify.value = res.data.orders;
+}
+
+function readyMessage(order) {
+  const day = order.desired_date ? ` le ${formatDay(String(order.desired_date).slice(0, 10))}` : "";
+  return `Bonjour ${order.name}, votre commande est prête${day}. Code de retrait : ${formatOrderCode(order.order_number)}. Total à régler : ${order.total} €. L'Héritage des Mornes`;
+}
+
+// Le clic ouvre WhatsApp ; la commande est notée « prévenue » pour ne plus apparaître dans la liste.
+async function markNotified(order) {
+  const res = await api(`/api/admin/orders/${order.id}`, { method: "PATCH", body: { notified: true } });
+  if (res.ok) toNotify.value = toNotify.value.filter((entry) => entry.id !== order.id);
+}
+
+// ---------- Clôture de la semaine ----------
+const closing = ref(false);
+
+async function closeSession() {
+  const summary = await api("/api/admin/orders/session-summary");
+  if (!summary.ok) return toast.error(summary.error);
+  const s = summary.data;
+  const lines = [
+    "Clôturer la semaine ?",
+    "",
+    `• ${s.notRetrieved} commande(s) « prête(s) » dont le retrait est passé seront marquées « Non retirées ».`,
+    `• ${s.soldOutProducts} article(s) en rupture seront remis en stock (les ruptures des paniers aussi).`
+  ];
+  if (s.unfinished) lines.push("", `Attention : ${s.unfinished} commande(s) du retrait passé ne sont pas terminées (nouvelle ou confirmée) : elles ne changent pas.`);
+  if (!confirm(lines.join(String.fromCharCode(10)))) return;
+  closing.value = true;
+  const res = await api("/api/admin/orders/close-session", { method: "POST" });
+  closing.value = false;
+  if (!res.ok) return toast.error(res.error);
+  toast.success(`Semaine clôturée : ${res.data.notRetrieved} non retirée(s), ${res.data.restocked} article(s) remis en stock.`);
+  await loadOrders({ silent: true });
+}
+
 function formatEuros(value) {
   return `${Number(value).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €`;
 }
@@ -183,6 +225,7 @@ async function loadOrders({ silent = false } = {}) {
 
   const res = await api(`/api/admin/orders?${params}`);
   if (res.ok) {
+    loadToNotify();
     orders.value = res.data.orders;
     counts.value = res.data.counts;
     handleNewCount(res.data.counts.nouvelle || 0);
@@ -317,8 +360,28 @@ onBeforeUnmount(() => {
       <span v-if="sales.mode !== 'auto'"> (mode manuel)</span>
       · retrait le {{ formatDay(sales.pickupDate) }}
       <RouterLink :to="{ path: '/admin/contenu', hash: '#sales' }">Modifier</RouterLink>
+      <button type="button" class="btn ghost compact-btn" :disabled="closing" @click="closeSession">Clôturer la semaine</button>
       <RouterLink to="/admin/preparation" class="pill-link">Liste de préparation →</RouterLink>
     </p>
+
+    <section v-if="toNotify.length" class="notify" aria-labelledby="notify-title">
+      <h2 id="notify-title">📣 À prévenir ({{ toNotify.length }})</h2>
+      <p class="muted">Commandes prêtes dont le client n'a pas encore été averti. Un clic ouvre WhatsApp avec le message prêt à envoyer.</p>
+      <ul>
+        <li v-for="order in toNotify" :key="order.id">
+          <span><strong>{{ order.name }}</strong> · {{ formatOrderCode(order.order_number) }} · {{ order.total }} €</span>
+          <a
+            :href="customerWhatsappLink(order.phone, readyMessage(order))"
+            target="_blank"
+            rel="noreferrer"
+            class="btn ghost whatsapp-link"
+            @click="markNotified(order)"
+          >
+            Prévenir sur WhatsApp
+          </a>
+        </li>
+      </ul>
+    </section>
 
     <section v-if="stats" class="stats" aria-label="Chiffres clés">
       <div class="stat">
@@ -342,6 +405,35 @@ onBeforeUnmount(() => {
           <li v-for="item in stats.top.slice(0, 3)" :key="item.name">{{ item.qty }} × {{ item.name }}</li>
         </ol>
         <span v-else class="stat-sub">Pas encore de commande</span>
+      </div>
+    </section>
+
+    <section v-if="stats?.insights" class="insights" aria-label="Indicateurs sur 90 jours">
+      <div class="stat">
+        <span class="stat-label">Clients fidèles (90 j)</span>
+        <strong>{{ stats.insights.returningRate ?? "–" }}{{ stats.insights.returningRate != null ? " %" : "" }}</strong>
+        <span class="stat-sub">{{ stats.insights.returningCustomers }} sur {{ stats.insights.customers }} ont commandé 2 fois ou plus</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Retrait effectif</span>
+        <strong>{{ stats.insights.pickupRate ?? "–" }}{{ stats.insights.pickupRate != null ? " %" : "" }}</strong>
+        <span class="stat-sub">commandes retirées parmi celles terminées</span>
+      </div>
+      <div class="stat stat-top">
+        <span class="stat-label">Paniers les plus vendus (30 j)</span>
+        <ol v-if="stats.insights.topBaskets.length">
+          <li v-for="basket in stats.insights.topBaskets.slice(0, 3)" :key="basket.name">{{ basket.qty }} × {{ basket.name }}</li>
+        </ol>
+        <span v-else class="stat-sub">Pas encore de panier vendu</span>
+      </div>
+      <div class="stat stat-top">
+        <span class="stat-label">Dernières sessions</span>
+        <ol v-if="stats.insights.sessions.length">
+          <li v-for="session in stats.insights.sessions.slice(0, 4)" :key="session.day">
+            {{ formatDay(session.day) }} : {{ session.orders }} cmd · {{ formatEuros(session.revenue) }}
+          </li>
+        </ol>
+        <span v-else class="stat-sub">Pas encore de session</span>
       </div>
     </section>
 
@@ -894,6 +986,56 @@ h1 {
 .status-badge.status-overdue {
   background: #fdebd0;
   color: #8a4b08;
+}
+
+.compact-btn {
+  padding: 7px 14px;
+  font-size: 13px;
+}
+
+.notify {
+  margin: 0 0 20px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #fff;
+  border: 2px solid var(--clay);
+}
+
+.notify h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.notify .muted {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.notify ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.notify li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.insights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 0 0 20px;
 }
 
 .status-badge.paid {

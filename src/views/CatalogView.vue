@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useCatalog } from "../stores/catalog.js";
 import { useCart } from "../stores/cart.js";
 import LoadError from "../components/LoadError.vue";
+import FavoriteButton from "../components/FavoriteButton.vue";
 
 const catalog = useCatalog();
 const cart = useCart();
@@ -119,7 +120,9 @@ function handleAdd(product) {
             <div>
               <h3>{{ product.name }}</h3>
               <p class="product-price">{{ formatPrice(product.price) }} € / {{ product.unit }}</p>
+              <p v-if="product.stockLeft && !product.soldOut" class="low-stock">Plus que {{ product.stockLeft }} !</p>
             </div>
+            <span class="product-fav"><FavoriteButton type="product" :slug="product.slug" :name="product.name" /></span>
             <p v-if="product.soldOut" class="sold-out-tag">Rupture cette semaine</p>
             <div v-else class="product-actions">
               <input
@@ -143,6 +146,24 @@ function handleAdd(product) {
 </template>
 
 <style scoped>
+.low-stock {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--clay-dark);
+}
+
+.product-card {
+  position: relative;
+}
+
+.product-fav {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+}
+
 .sold-out-tag {
   margin: 0;
   padding: 8px 12px;

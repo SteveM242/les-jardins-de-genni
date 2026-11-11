@@ -16,6 +16,7 @@ import ResetPasswordView from "../views/account/ResetPasswordView.vue";
 import VerifyEmailView from "../views/account/VerifyEmailView.vue";
 import UnsubscribeReminderView from "../views/account/UnsubscribeReminderView.vue";
 import AdminPrepView from "../views/admin/AdminPrepView.vue";
+import AdminSystemView from "../views/admin/AdminSystemView.vue";
 import AccountView from "../views/account/AccountView.vue";
 import AdminLoginView from "../views/admin/AdminLoginView.vue";
 import AdminDashboardView from "../views/admin/AdminDashboardView.vue";
@@ -57,6 +58,7 @@ const router = createRouter({
     { path: "/compte", component: AccountView, meta: { requiresCustomer: true } },
     { path: "/admin/connexion", component: AdminLoginView, meta: { bare: true, guestOnly: "admin" } },
     { path: "/admin", component: AdminDashboardView, meta: { bare: true, requiresAdmin: true } },
+    { path: "/admin/systeme", component: AdminSystemView, meta: { bare: true, requiresAdmin: true } },
     { path: "/admin/preparation", component: AdminPrepView, meta: { bare: true, requiresAdmin: true } },
     { path: "/admin/articles", component: AdminProductsView, meta: { bare: true, requiresAdmin: true } },
     { path: "/admin/paniers", component: AdminBasketsView, meta: { bare: true, requiresAdmin: true } },

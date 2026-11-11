@@ -14,6 +14,7 @@ const state = reactive({
   legal: { companyName: "", legalForm: "", siret: "", address: "", publisher: "", phone: "", mediator: "" },
   // Session de vente : { mode, open, pickupDate, opensInDays, closedMessage } (null tant qu'inconnue : on n'affiche rien de faux).
   sales: null,
+  payments: { online: false },
   loaded: false,
   loading: false
 });
@@ -40,6 +41,7 @@ async function load({ force = false } = {}) {
     Object.assign(state.checkout, data.checkout || {});
     Object.assign(state.legal, data.legal || {});
     state.sales = data.salesStatus || null;
+    state.payments = data.payments || { online: false };
     applyContact(state.contact);
     state.loaded = true;
   }

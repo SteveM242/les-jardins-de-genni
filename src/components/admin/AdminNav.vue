@@ -35,6 +35,7 @@ const GROUPS = [
     links: [
       { to: "/admin/contenu", label: "Contenu du site", icon: "✏️" },
       { to: "/admin/utilisateurs", label: "Utilisateurs", icon: "👥" },
+      { to: "/admin/systeme", label: "Système et sauvegarde", icon: "🛠️" },
       { to: "/admin/compte", label: "Mon compte", icon: "🔑" }
     ]
   }
