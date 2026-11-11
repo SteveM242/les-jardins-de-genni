@@ -2,7 +2,7 @@ import { reactive } from "vue";
 import { api } from "../api.js";
 import { site } from "../data/site.js";
 
-// Contenu éditorial géré par La Fée des Mornes : réseaux sociaux, galerie, annonce, coordonnées, présentation,
+// Contenu éditorial géré par L'Héritage des Mornes : réseaux sociaux, galerie, annonce, coordonnées, présentation,
 // infos de retrait/livraison et mentions légales.
 const state = reactive({
   socials: {},

@@ -1,17 +1,21 @@
 <script setup>
 import { RouterLink } from "vue-router";
 import { site } from "../data/site.js";
+import WeeklyRhythm from "../components/WeeklyRhythm.vue";
 </script>
 
 <template>
   <div class="how-it-works">
     <div class="container">
       <p class="eyebrow">Comment ça marche</p>
-      <h1>Commander chez la Fée des Mornes, étape par étape</h1>
+      <h1>Commander chez L'Héritage des Mornes, étape par étape</h1>
       <p class="intro">
-        Deux façons de commander : en ligne via le formulaire, ou directement sur WhatsApp si vous
-        préférez échanger avec la Fée des Mornes. Dans les deux cas, le principe reste le même.
+        Chaque semaine, L'Héritage des Mornes ouvre une session de vente : on commande du <strong>samedi au lundi soir</strong>,
+        et on récupère sa commande le <strong>mercredi</strong>. Deux façons de commander : en ligne via le formulaire, ou
+        directement sur WhatsApp si vous préférez échanger avec L'Héritage des Mornes.
       </p>
+
+      <WeeklyRhythm />
 
       <ol class="steps-list">
         <li v-for="(step, index) in site.howItWorks" :key="step.title">
@@ -28,28 +32,34 @@ import { site } from "../data/site.js";
           <h3>Commande en ligne</h3>
           <p>
             Ajoutez un ou plusieurs paniers depuis la page d'un panier ou directement depuis la liste,
-            puis validez votre commande avec vos coordonnées. La Fée des Mornes reçoit votre demande et vous
-            recontacte pour confirmer la disponibilité.
+            puis validez votre commande avec vos coordonnées, entre le samedi et le lundi soir. L'Héritage des Mornes
+            reçoit votre demande et vous recontacte pour confirmer la disponibilité.
           </p>
         </div>
         <div class="detail-card">
           <h3>Commande WhatsApp</h3>
           <p>
             Sur chaque panier, un lien ouvre WhatsApp avec un message déjà rédigé. Il ne reste qu'à
-            l'envoyer à La Fée des Mornes pour démarrer la conversation.
+            l'envoyer à L'Héritage des Mornes pour démarrer la conversation.
           </p>
         </div>
         <div class="detail-card">
-          <h3>Retrait ou livraison</h3>
+          <h3>Retrait le mercredi</h3>
           <p>
-            Précisez votre préférence lors de la commande. La Fée des Mornes confirme le jour, l'heure et le lieu
-            selon les tournées de la semaine.
+            Les commandes passées pendant la session (samedi → lundi soir) sont à récupérer le mercredi. Précisez
+            votre préférence lors de la commande : L'Héritage des Mornes confirme l'heure et le lieu.
+          </p>
+        </div>
+        <div class="detail-card">
+          <h3>Après le lundi soir ?</h3>
+          <p>
+            La vente est alors fermée : rendez-vous le samedi suivant pour la nouvelle session.
           </p>
         </div>
         <div class="detail-card">
           <h3>Paiement</h3>
           <p>
-            Le règlement se fait directement avec la Fée des Mornes au moment du retrait ou de la livraison
+            Le règlement se fait directement avec L'Héritage des Mornes au moment du retrait ou de la livraison
             (espèces ou virement selon accord).
           </p>
         </div>

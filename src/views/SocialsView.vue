@@ -7,10 +7,10 @@ const { links, loaded } = useSocialNetworks();
 <template>
   <div class="socials-page">
     <div class="container">
-      <p class="eyebrow">Suivre la Fée des Mornes</p>
-      <h1>Découvrez La Fée des Mornes sur les réseaux</h1>
+      <p class="eyebrow">Suivre L'Héritage des Mornes</p>
+      <h1>Découvrez L'Héritage des Mornes sur les réseaux</h1>
       <p class="intro">
-        Photos du jardin, récoltes de la semaine, coulisses de la préparation des paniers : retrouvez La Fée des Mornes là où vous avez
+        Photos du jardin, récoltes de la semaine, coulisses de la préparation des paniers : retrouvez L'Héritage des Mornes là où vous avez
         l'habitude de regarder.
       </p>
 
@@ -26,7 +26,7 @@ const { links, loaded } = useSocialNetworks();
       </ul>
 
       <p v-else-if="loaded" class="empty">
-        Les réseaux de la Fée des Mornes arrivent bientôt. En attendant, vous pouvez
+        Les réseaux de L'Héritage des Mornes arrivent bientôt. En attendant, vous pouvez
         <RouterLink to="/#paniers">découvrir les paniers</RouterLink> ou <RouterLink to="/contact">nous écrire</RouterLink>.
       </p>
     </div>

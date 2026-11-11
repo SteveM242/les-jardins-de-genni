@@ -46,7 +46,8 @@ const mediator = computed(() => content.state.legal.mediator);
       <template v-if="checkout.deliveryInfo"><strong>Livraison :</strong> {{ checkout.deliveryInfo }}</template>
     </p>
     <p>
-      Le jour et le lieu de retrait ou de livraison sont confirmés par {{ site.brandName }}. Le jour souhaité indiqué lors de la
+      Les ventes fonctionnent par session hebdomadaire : ouverture le samedi, clôture le lundi soir, retrait des commandes le
+      mercredi. Le jour et le lieu de retrait ou de livraison sont confirmés par {{ site.brandName }}. Le jour souhaité indiqué lors de la
       commande est une préférence, non un engagement.
     </p>
 

@@ -12,7 +12,7 @@ const { links } = useSocialNetworks();
 <template>
   <ul v-if="links.length" class="social-links" :class="props.variant" aria-label="Réseaux sociaux">
     <li v-for="link in links" :key="link.key">
-      <a :href="link.url" target="_blank" rel="noopener noreferrer" :aria-label="`La Fée des Mornes sur ${link.label} (nouvel onglet)`">
+      <a :href="link.url" target="_blank" rel="noopener noreferrer" :aria-label="`L'Héritage des Mornes sur ${link.label} (nouvel onglet)`">
         <span class="dot" :style="{ background: link.color }" aria-hidden="true"></span>
         {{ link.label }}
       </a>

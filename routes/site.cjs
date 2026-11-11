@@ -8,7 +8,7 @@ const { sectionsFromRows, publicSections } = require("../lib/siteSections.cjs");
 const router = express.Router();
 router.param("id", numericId);
 
-// Contenu éditorial public géré par La Fée des Mornes : réseaux sociaux, galerie d'accueil, annonce, coordonnées,
+// Contenu éditorial public géré par L'Héritage des Mornes : réseaux sociaux, galerie d'accueil, annonce, coordonnées,
 // présentation, infos de retrait/livraison et mentions légales.
 router.get("/site", async (_req, res) => {
   const [{ rows: settings }, { rows: gallery }] = await Promise.all([

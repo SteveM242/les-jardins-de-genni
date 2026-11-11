@@ -1,13 +1,13 @@
 import { reactive } from "vue";
 
-// Informations du site. Les coordonnées (WhatsApp, email, commune, horaires) sont saisies par La Fée des Mornes dans
+// Informations du site. Les coordonnées (WhatsApp, email, commune, horaires) sont saisies par L'Héritage des Mornes dans
 // l'espace pro (« Contenu du site ») et injectées ici au chargement (voir stores/siteContent.js) :
 // tant qu'elles ne sont pas renseignées, aucun faux numéro ni faux email n'est affiché.
 export const site = reactive({
   brandName: "L'Héritage des Mornes",
   tagline: "Fruits et légumes péyi, cueillis avec soin.",
   intro:
-    "La Fée des Mornes cultive ses fruits et légumes en Martinique, sans précipitation, au rythme des saisons. Chaque panier est préparé à la main, avec ce qui est bon à cueillir cette semaine-là.",
+    "L'Héritage des Mornes cultive ses fruits et légumes en Martinique, sans précipitation, au rythme des saisons. Chaque panier est préparé à la main, avec ce qui est bon à cueillir cette semaine-là.",
 
   // Renseignés depuis les réglages (vides = non configurés)
   whatsappNumber: "",
@@ -15,12 +15,19 @@ export const site = reactive({
   location: "Martinique",
   hours: "",
 
+  // Rythme hebdomadaire : une seule session de vente par semaine, retrait le mercredi.
+  weeklyCycle: [
+    { day: "Samedi", title: "La vente ouvre", text: "Découvrez les produits de la semaine et passez commande." },
+    { day: "Lundi soir", title: "La vente ferme", text: "Dernier moment pour commander : ensuite, rendez-vous à la session suivante." },
+    { day: "Mercredi", title: "Retrait des commandes", text: "Venez récupérer votre commande, préparée pour vous." }
+  ],
+
   // Les étapes s'adaptent : pas de mention de WhatsApp tant que le numéro n'est pas configuré.
   get howItWorks() {
     return [
       {
-        title: "1. Choisissez votre panier",
-        text: "Parcourez les paniers disponibles cette semaine et leur contenu détaillé, ou composez le vôtre."
+        title: "1. Choisissez votre panier (du samedi au lundi soir)",
+        text: "La vente de la semaine ouvre le samedi et ferme le lundi soir. Parcourez les paniers et leur contenu détaillé, ou composez le vôtre."
       },
       {
         title: this.whatsappNumber ? "2. Commandez en ligne ou sur WhatsApp" : "2. Commandez en ligne",
@@ -29,8 +36,8 @@ export const site = reactive({
           : "Remplissez le formulaire de commande : vous relisez tout avant de confirmer."
       },
       {
-        title: "3. Récupérez ou faites-vous livrer",
-        text: "La Fée des Mornes vous confirme le jour et le lieu de retrait ou de livraison."
+        title: "3. Récupérez votre commande le mercredi",
+        text: "Les commandes sont préparées après la clôture et à récupérer le mercredi. L'Héritage des Mornes vous confirme l'heure et le lieu."
       }
     ];
   }
@@ -41,15 +48,15 @@ function whatsappLink(message) {
 }
 
 export function whatsappOrderLink(panierName) {
-  return whatsappLink(`Bonjour La Fée des Mornes, je souhaite commander le ${panierName}. Est-il disponible cette semaine ?`);
+  return whatsappLink(`Bonjour L'Héritage des Mornes, je souhaite commander le ${panierName}. Est-il disponible cette semaine ?`);
 }
 
 export function whatsappGeneralLink() {
-  return whatsappLink("Bonjour La Fée des Mornes, j'ai une question sur vos paniers.");
+  return whatsappLink("Bonjour L'Héritage des Mornes, j'ai une question sur vos paniers.");
 }
 
 export function whatsappOrderConfirmLink(orderNumber, customerName) {
-  return whatsappLink(`Bonjour La Fée des Mornes, c'est ${customerName || "un·e client·e"}. Je viens de passer la commande ${orderNumber} sur le site.`);
+  return whatsappLink(`Bonjour L'Héritage des Mornes, c'est ${customerName || "un·e client·e"}. Je viens de passer la commande ${orderNumber} sur le site.`);
 }
 
 // Lien WhatsApp vers un·e client·e à partir du téléphone saisi à la commande.
@@ -63,5 +70,5 @@ export function customerWhatsappLink(phone, message) {
 
 export function whatsappCartLink(items) {
   const lines = items.map((item) => `- ${item.qty} x ${item.name}`);
-  return whatsappLink(`Bonjour La Fée des Mornes, je souhaite commander :\n${lines.join("\n")}\n\nEst-ce disponible cette semaine ?`);
+  return whatsappLink(`Bonjour L'Héritage des Mornes, je souhaite commander :\n${lines.join("\n")}\n\nEst-ce disponible cette semaine ?`);
 }

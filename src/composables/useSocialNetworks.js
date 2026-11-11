@@ -10,7 +10,7 @@ const NETWORKS = [
   { key: "youtube", label: "YouTube", color: "#ff0000", description: "Reportages et vidéos du jardin." }
 ];
 
-// Réseaux que La Fée des Mornes a renseignés dans l'espace pro, plus WhatsApp dès que son numéro est configuré.
+// Réseaux que L'Héritage des Mornes a renseignés dans l'espace pro, plus WhatsApp dès que son numéro est configuré.
 // Un réseau sans lien n'apparaît jamais : pas de bouton qui ne mène nulle part.
 export function useSocialNetworks() {
   const content = useSiteContent();

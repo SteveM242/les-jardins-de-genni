@@ -57,7 +57,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="carousel" aria-roledescription="carrousel" aria-label="Photos de la Fée des Mornes" @mouseenter="hovering = true" @mouseleave="hovering = false" @focusin="hovering = true" @focusout="hovering = false">
+  <section class="carousel" aria-roledescription="carrousel" aria-label="Photos de L'Héritage des Mornes" @mouseenter="hovering = true" @mouseleave="hovering = false" @focusin="hovering = true" @focusout="hovering = false">
     <div ref="track" class="track" tabindex="0" aria-label="Photos, faites défiler horizontalement" @scroll.passive="onScroll" @keydown.left.prevent="goTo(current - 1)" @keydown.right.prevent="goTo(current + 1)">
       <figure v-for="(slide, index) in slides" :key="slide.url" class="slide" :aria-label="`Photo ${index + 1} sur ${slides.length}`">
         <img :src="slide.url" :alt="slide.caption || 'Photo de L’Héritage des Mornes'" :loading="index === 0 ? 'eager' : 'lazy'" draggable="false" />

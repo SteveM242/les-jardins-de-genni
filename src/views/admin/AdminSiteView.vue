@@ -234,7 +234,7 @@ onMounted(load);
           Écrivez simplement votre pseudo (ex : <strong>@heritagedesmornes</strong>) ou collez l'adresse de votre page. Après l'enregistrement, cliquez sur
           « Tester » pour vérifier que le lien ouvre le bon profil. Un réseau laissé vide n'est pas affiché ; WhatsApp apparaît tout seul dès que
           votre numéro est renseigné plus haut.
-          Vos visiteurs retrouvent tout sur la page <RouterLink to="/reseaux">Suivre la Fée des Mornes</RouterLink>.
+          Vos visiteurs retrouvent tout sur la page <RouterLink to="/reseaux">Suivre L'Héritage des Mornes</RouterLink>.
         </p>
         <div class="socials-grid">
           <label v-for="network in SOCIAL_NETWORKS" :key="network.key">

@@ -1,7 +1,7 @@
 # Crédits photos (temporaires)
 
 Toutes ces photos sont libres de droits (Wikimedia Commons) et servent de
-placeholder en attendant les vraies photos de la Fée des Mornes et de ses paniers.
+placeholder en attendant les vraies photos de L'Héritage des Mornes et de ses paniers.
 À remplacer avant mise en ligne définitive.
 
 - `hero-jardin.webp` — Jardin de Balata, Martinique. Thérèse Gaigé. CC0.

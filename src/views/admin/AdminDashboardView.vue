@@ -331,7 +331,7 @@ onBeforeUnmount(() => {
 
         <div class="order-footer">
           <a
-            :href="customerWhatsappLink(order.phone, `Bonjour ${order.name}, c'est La Fée des Mornes (L'Héritage des Mornes) à propos de votre commande ${order.order_number}.`)"
+            :href="customerWhatsappLink(order.phone, `Bonjour ${order.name}, c'est L'Héritage des Mornes à propos de votre commande ${order.order_number}.`)"
             target="_blank"
             rel="noreferrer"
             class="btn ghost whatsapp-link"

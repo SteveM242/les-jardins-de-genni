@@ -132,7 +132,7 @@ function startOver() {
       <p class="eyebrow">Sur mesure</p>
       <h1>{{ editing ? "Modifier mon panier" : "Composez votre panier" }}</h1>
       <p class="intro">
-        Choisissez vos fruits et légumes, donnez un nom à votre panier, puis validez-le. La Fée des Mornes recevra exactement la liste
+        Choisissez vos fruits et légumes, donnez un nom à votre panier, puis validez-le. L'Héritage des Mornes recevra exactement la liste
         de ce que vous avez choisi.
       </p>
 

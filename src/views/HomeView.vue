@@ -7,13 +7,14 @@ import PanierCard from "../components/PanierCard.vue";
 import LoadError from "../components/LoadError.vue";
 import GalleryCarousel from "../components/GalleryCarousel.vue";
 import SocialLinks from "../components/SocialLinks.vue";
+import WeeklyRhythm from "../components/WeeklyRhythm.vue";
 import { useSiteContent } from "../stores/siteContent.js";
 
 const previewSteps = computed(() => site.howItWorks.slice(0, 3));
 const catalog = useCatalog();
 onMounted(catalog.load);
 
-// Galerie gérée par La Fée des Mornes ; tant qu'elle est vide, deux photos de Martinique (voir public/images/CREDITS.md).
+// Galerie gérée par L'Héritage des Mornes ; tant qu'elle est vide, deux photos de Martinique (voir public/images/CREDITS.md).
 const siteContent = useSiteContent();
 onMounted(() => siteContent.load());
 const FALLBACK_SLIDES = [
@@ -27,22 +28,23 @@ const slides = computed(() => (siteContent.state.gallery.length > 0 ? siteConten
   <div class="home">
     <section class="hero">
       <div class="container hero-inner">
-        <p class="eyebrow">Martinique · Fait main · Saison après saison</p>
+        <p class="eyebrow">Martinique · Fait main · Vente du samedi au lundi soir</p>
         <h1>{{ site.tagline }}</h1>
         <p class="hero-intro">{{ site.intro }}</p>
         <div class="hero-actions">
           <a href="#paniers" class="btn primary">Voir les paniers</a>
-          <RouterLink to="/a-propos" class="btn ghost light">Découvrir la Fée des Mornes</RouterLink>
+          <RouterLink to="/a-propos" class="btn ghost light">Découvrir L'Héritage des Mornes</RouterLink>
         </div>
       </div>
     </section>
 
     <section id="paniers" class="paniers-section">
       <div class="container">
+        <WeeklyRhythm />
         <p class="eyebrow">Nos paniers</p>
         <h2>Cueillis cette semaine</h2>
         <p class="section-intro">
-          Chaque panier est composé selon ce qui est mûr et disponible chez la Fée des Mornes. La liste
+          Chaque panier est composé selon ce qui est mûr et disponible chez L'Héritage des Mornes. La liste
           exacte peut varier légèrement d'une semaine à l'autre.
         </p>
 
@@ -70,7 +72,7 @@ const slides = computed(() => (siteContent.state.gallery.length > 0 ? siteConten
         <GalleryCarousel :slides="slides" />
 
         <div class="follow">
-          <p class="follow-title">Suivez la Fée des Mornes au quotidien</p>
+          <p class="follow-title">Suivez L'Héritage des Mornes au quotidien</p>
           <SocialLinks />
           <RouterLink to="/reseaux" class="follow-more">Tous les réseaux →</RouterLink>
         </div>

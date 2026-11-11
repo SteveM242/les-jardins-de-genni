@@ -56,7 +56,7 @@ const SEED_BASKETS = [
     summary: "Le mélange du jardin : légumes et fruits de saison, pour une semaine de cuisine péyi.",
     details:
       "Le panier qui change selon la récolte de la semaine : un équilibre entre légumes à cuire et fruits à croquer, pensé pour les repas de tous les jours. Idéal pour découvrir ou redécouvrir les produits péyi.",
-    origin: "Cultivé sur l'exploitation de la Fée des Mornes, récolté le jour de préparation du panier.",
+    origin: "Cultivé sur l'exploitation de L'Héritage des Mornes, récolté le jour de préparation du panier.",
     items: [
       "Christophines", "Ignames", "Bananes jaunes", "Bananes vertes (à cuire)", "Mangues",
       "Citrons verts", "Giraumon (citrouille péyi)", "Gombos", "Fruits de la passion",
@@ -72,7 +72,7 @@ const SEED_BASKETS = [
     summary: "Un concentré de douceur : mangues, ananas, bananes et fruits de la passion.",
     details:
       "Pour les amateurs de fruits bien mûrs et parfumés. La composition varie légèrement selon les arrivages — le corossol n'est disponible que quelques semaines par an.",
-    origin: "Cultivé sur l'exploitation de la Fée des Mornes, récolté le jour de préparation du panier.",
+    origin: "Cultivé sur l'exploitation de L'Héritage des Mornes, récolté le jour de préparation du panier.",
     items: ["Mangues", "Ananas", "Bananes jaunes", "Fruits de la passion", "Papaye", "Corossol (selon saison)"]
   },
   {
@@ -84,7 +84,7 @@ const SEED_BASKETS = [
     summary: "Que des légumes : de quoi cuisiner toute la semaine sans repasser par le marché.",
     details:
       "Pensé pour les familles qui cuisinent beaucoup : un panier 100% légumes, sans fruits, pour varier les plats du quotidien.",
-    origin: "Cultivé sur l'exploitation de la Fée des Mornes, récolté le jour de préparation du panier.",
+    origin: "Cultivé sur l'exploitation de L'Héritage des Mornes, récolté le jour de préparation du panier.",
     items: [
       "Christophines", "Ignames", "Patates douces", "Giraumon", "Choux péyi",
       "Épinards péyi (brèdes)", "Concombres", "Piments doux"
@@ -99,7 +99,7 @@ const SEED_BASKETS = [
     summary: "Un petit format pour découvrir, seul·e ou en couple.",
     details:
       "La même qualité que les grands paniers, en quantité réduite — idéal pour tester avant de passer à un format plus grand.",
-    origin: "Cultivé sur l'exploitation de la Fée des Mornes, récolté le jour de préparation du panier.",
+    origin: "Cultivé sur l'exploitation de L'Héritage des Mornes, récolté le jour de préparation du panier.",
     items: ["Christophines", "Bananes jaunes", "Mangues", "Citrons verts", "Fruits de la passion", "Herbes fraîches"]
   }
 ];

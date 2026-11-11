@@ -31,7 +31,7 @@ async function submit() {
           Si un compte existe avec l'adresse <strong>{{ email }}</strong>, un email contenant un lien de réinitialisation vient
           d'être envoyé. Le lien est valable 1 heure.
         </p>
-        <p class="hint">Rien reçu ? Vérifiez vos courriers indésirables, ou contactez La Fée des Mornes sur WhatsApp.</p>
+        <p class="hint">Rien reçu ? Vérifiez vos courriers indésirables, ou contactez L'Héritage des Mornes sur WhatsApp.</p>
         <RouterLink to="/compte/connexion" class="btn ghost">Retour à la connexion</RouterLink>
       </div>
 

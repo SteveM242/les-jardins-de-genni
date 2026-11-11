@@ -7,7 +7,7 @@ import SocialLinks from "../components/SocialLinks.vue";
   <div class="contact-page">
     <div class="container">
       <p class="eyebrow">Contact</p>
-      <h1>Une question ? Écrivez à La Fée des Mornes</h1>
+      <h1>Une question ? Écrivez à L'Héritage des Mornes</h1>
       <p class="intro">
         Pour toute question sur les paniers, la disponibilité ou une commande en cours,
         {{ site.whatsappNumber ? "le plus rapide est WhatsApp. Vous pouvez aussi passer par email." : "écrivez-nous." }}
@@ -38,8 +38,8 @@ import SocialLinks from "../components/SocialLinks.vue";
       </div>
 
       <section class="social-block" aria-labelledby="social-title">
-        <h2 id="social-title">Suivez la Fée des Mornes</h2>
-        <p class="social-intro">Photos du jardin, récoltes de la semaine, coulisses : retrouvez La Fée des Mornes sur ses réseaux.</p>
+        <h2 id="social-title">Suivez L'Héritage des Mornes</h2>
+        <p class="social-intro">Photos du jardin, récoltes de la semaine, coulisses : retrouvez L'Héritage des Mornes sur ses réseaux.</p>
         <SocialLinks />
       </section>
 

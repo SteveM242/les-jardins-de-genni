@@ -9,19 +9,19 @@
   },
   "/composer": {
     "title": "Composez votre panier sur mesure",
-    "description": "Choisissez vos fruits et légumes de Martinique, nommez votre panier et validez : La Fée des Mornes reçoit la liste exacte."
+    "description": "Choisissez vos fruits et légumes de Martinique, nommez votre panier et validez : L'Héritage des Mornes reçoit la liste exacte."
   },
   "/comment-ca-marche": {
     "title": "Comment ça marche",
     "description": "Choisissez ou composez votre panier, commandez en ligne, puis récupérez-le ou faites-vous livrer."
   },
   "/a-propos": {
-    "title": "À propos de la Fée des Mornes",
-    "description": "La Fée des Mornes cultive ses fruits et légumes en Martinique, au rythme des saisons. Découvrez son exploitation et sa façon de travailler."
+    "title": "À propos de L'Héritage des Mornes",
+    "description": "L'Héritage des Mornes cultive ses fruits et légumes en Martinique, au rythme des saisons. Découvrez son exploitation et sa façon de travailler."
   },
   "/contact": {
     "title": "Contact",
-    "description": "Une question sur les paniers ou une commande ? Contactez La Fée des Mornes."
+    "description": "Une question sur les paniers ou une commande ? Contactez L'Héritage des Mornes."
   },
   "/commande": {
     "title": "Panier & commande",
@@ -71,7 +71,7 @@
     "description": "Produits, prix, commande, paiement, retrait et livraison, annulation."
   },
   "/reseaux": {
-    "title": "Suivre la Fée des Mornes sur les réseaux",
-    "description": "Retrouvez La Fée des Mornes sur Instagram, TikTok, Snapchat, Facebook et WhatsApp : photos du jardin, récoltes de la semaine, coulisses."
+    "title": "Suivre L'Héritage des Mornes sur les réseaux",
+    "description": "Retrouvez L'Héritage des Mornes sur Instagram, TikTok, Snapchat, Facebook et WhatsApp : photos du jardin, récoltes de la semaine, coulisses."
   }
 }
