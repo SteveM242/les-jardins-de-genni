@@ -9,6 +9,8 @@ let orderByCode = { id: 7, order_number: "K7M4QH", name: "Awa", status: "prete" 
 let insertFailures = 0;
 let basketCurrent = { id: 3, items: ["Mangues"] };
 let basketNameTaken = false;
+const soldOutProducts = new Set();
+let basketCurrentName = null;
 const imageBase64 = Buffer.from("fake-image-bytes").toString("base64");
 
 // Faux Postgres : répond selon un fragment du SQL, et garde la trace des requêtes.
@@ -21,7 +23,7 @@ installFakeDb(async (text, params = []) => {
       igname: { slug: "igname", name: "Igname", unit: "kg", price: "10.00" },
       mangue: { slug: "mangue", name: "Mangues", unit: "kg", price: "3.50" }
     };
-    return { rows: params[0].filter((slug) => catalog[slug]).map((slug) => catalog[slug]) };
+    return { rows: params[0].filter((slug) => catalog[slug]).map((slug) => ({ ...catalog[slug], sold_out: soldOutProducts.has(slug) })) };
   }
   if (sql.includes("FROM baskets WHERE slug = ANY")) {
     const basket = { slug: "panier-decouverte", name: "Panier Découverte", price: "12.00", items: ["Mangues", "Christophines"] };
@@ -47,7 +49,13 @@ installFakeDb(async (text, params = []) => {
   }
   if (sql.includes("FROM orders WHERE order_number")) return { rows: orderByCode && params[0] === orderByCode.order_number ? [orderByCode] : [] };
   if (sql.includes("SELECT id, items, composition FROM baskets WHERE id")) return { rows: basketCurrent ? [basketCurrent] : [] };
-  if (sql.includes("lower(name) = lower")) return { rows: basketNameTaken ? [{ "?column?": 1 }] : [] };
+  if (sql.includes("lower(name) = lower")) return { rows: basketNameTaken || params[0] === "Panier Familial (copie)x" ? [{ "?column?": 1 }] : [] };
+  if (sql.includes("SELECT name FROM baskets WHERE id")) return { rows: basketCurrentName ? [{ name: basketCurrentName }] : [] };
+  if (sql.includes("INSERT INTO baskets") && sql.includes("SELECT $1, $2")) return { rows: [{ id: 9, slug: params[0], name: params[1], price: "34.00", active: false, items: [] }] };
+  if (sql.includes("SELECT status FROM orders WHERE id")) return { rows: [{ status: "nouvelle" }] };
+  if (sql.includes("UPDATE orders SET")) return { rows: [{ id: 1, order_number: "ABC", name: "Awa", status: params[0] || "nouvelle", email: "" }] };
+  if (sql.includes("INSERT INTO reminder_subscribers")) return { rows: [] };
+  if (sql.includes("DELETE FROM reminder_subscribers")) return { rowCount: params[0] === "a".repeat(32) ? 1 : 0, rows: [] };
   if (sql.includes("UPDATE baskets SET")) return { rows: [{ id: 3, name: params[0] || "Panier", price: params[1] || "10.00", active: params[5], items: [] }] };
   if (sql.includes("FROM discount_codes")) return { rows: discountRow ? [discountRow] : [] };
   if (sql.includes("SELECT image FROM products")) {
@@ -60,6 +68,10 @@ installFakeDb(async (text, params = []) => {
 });
 
 const { signToken } = require("../auth.cjs");
+const { clock } = require("../lib/salesWindow.cjs");
+// Samedi 14 novembre 2026, 11 h à la Martinique : la vente est ouverte, retrait le mercredi 18.
+const SATURDAY = new Date("2026-11-14T15:00:00Z");
+clock.now = () => SATURDAY;
 let app;
 
 test.before(async () => {
@@ -260,7 +272,7 @@ test("liste admin des commandes : pagination, filtre, recherche échappée et co
   assert.equal(res.status, 200);
   assert.equal(res.json.page, 2);
   assert.equal(res.json.total, 1);
-  assert.deepEqual(res.json.counts, { nouvelle: 3, confirmee: 0, prete: 0, livree: 2, annulee: 0, all: 5 });
+  assert.deepEqual(res.json.counts, { nouvelle: 3, confirmee: 0, prete: 0, livree: 2, non_retiree: 0, annulee: 0, all: 5 });
   const list = calls.find((c) => c.text.includes("SELECT * FROM orders"));
   assert.match(list.text, /LIMIT 20 OFFSET 20/);
   assert.deepEqual(list.params, ["nouvelle", "%50\\%%"]);
@@ -294,36 +306,92 @@ test("un pourcentage supérieur à 100 est refusé côté admin", async () => {
   assert.equal(res.status, 400);
 });
 
-function futureDay(days) {
-  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
+const orderBody = { customer: { name: "Marie", phone: "0696000000", desiredDate: "2030-01-01" }, items: [{ key: "a", type: "product", slug: "igname", qty: 1 }] };
 
-test("jour souhaité : enregistré si valide, vide sinon", async () => {
-  const day = futureDay(3);
-  const withDate = await app.request("POST", "/api/orders", {
-    body: { customer: { name: "Marie", phone: "0696000000", desiredDate: day }, items: [{ key: "a", type: "product", slug: "igname", qty: 1 }] }
-  });
-  assert.equal(withDate.status, 200);
-  assert.equal(calls.find((c) => c.text.includes("INSERT INTO orders")).params[13], day);
-
-  calls.length = 0;
-  const without = await app.request("POST", "/api/orders", {
-    body: { customer: { name: "Marie", phone: "0696000000" }, items: [{ key: "a", type: "product", slug: "igname", qty: 1 }] }
-  });
-  assert.equal(without.status, 200);
-  assert.equal(calls.find((c) => c.text.includes("INSERT INTO orders")).params[13], null);
+test("session de vente : le retrait est le mercredi de la session, la date saisie est ignorée", async () => {
+  const res = await app.request("POST", "/api/orders", { body: orderBody });
+  assert.equal(res.status, 200);
+  assert.equal(calls.find((c) => c.text.includes("INSERT INTO orders")).params[13], "2026-11-18");
 });
 
-test("jour souhaité : passé, trop lointain ou invalide -> 400 sans commande", async () => {
-  for (const desiredDate of [futureDay(-5), futureDay(90), "pas-une-date"]) {
-    calls.length = 0;
-    const res = await app.request("POST", "/api/orders", {
-      body: { customer: { name: "Marie", phone: "0696000000", desiredDate }, items: [{ key: "a", type: "product", slug: "igname", qty: 1 }] }
-    });
-    assert.equal(res.status, 400, desiredDate);
-    assert.match(res.json.error, /jour souhaité|jours/i);
+test("session de vente : hors session (mercredi), la commande est refusée sans rien enregistrer", async () => {
+  const previous = clock.now;
+  clock.now = () => new Date("2026-11-11T15:00:00Z"); // mercredi
+  try {
+    const res = await app.request("POST", "/api/orders", { body: orderBody });
+    assert.equal(res.status, 403);
+    assert.equal(res.json.code, "SALES_CLOSED");
+    assert.equal(res.json.sales.opensInDays, 3);
     assert.ok(!calls.some((c) => c.text.includes("INSERT INTO orders")));
+    // La relecture du panier indique aussi que la vente est fermée.
+    const check = await app.request("POST", "/api/cart/check", { body: { items: [] } });
+    assert.equal(check.json.sales.open, false);
+  } finally {
+    clock.now = previous;
   }
+});
+
+test("liste de préparation : session admin requise, quantités agrégées", async () => {
+  assert.equal((await app.request("GET", "/api/admin/orders/prep")).status, 401);
+  const res = await app.request("GET", "/api/admin/orders/prep?date=2026-11-18", { cookie: adminCookie() });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.date, "2026-11-18");
+  const sql = calls.find((c) => c.text.includes("SELECT order_number, name, items FROM orders"));
+  assert.deepEqual(sql.params, [["nouvelle", "confirmee", "prete"], "2026-11-18"]);
+});
+
+test("export CSV : session admin requise, en-têtes et séparateur", async () => {
+  assert.equal((await app.request("GET", "/api/admin/orders/export.csv")).status, 401);
+  const res = await app.request("GET", "/api/admin/orders/export.csv?from=2026-11-01&to=2026-11-30&status=livree", { cookie: adminCookie() });
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type"), /text\/csv/);
+  assert.match(res.headers.get("content-disposition"), /commandes-.*\.csv/);
+  assert.match(res.text, /Code;Date;Retrait prévu;Statut;Payée/);
+  const sql = calls.find((c) => c.text.includes("SELECT * FROM orders WHERE"));
+  assert.deepEqual(sql.params, ["2026-11-01", "2026-11-30", "livree"]);
+});
+
+test("paiement : une commande se marque payée sans changer son statut ; rien à modifier -> 400", async () => {
+  const res = await app.request("PATCH", "/api/admin/orders/1", { cookie: adminCookie(), body: { paid: true } });
+  assert.equal(res.status, 200);
+  const update = calls.find((c) => c.text.includes("UPDATE orders SET"));
+  assert.deepEqual(update.params, [null, true, "1"]);
+  assert.equal((await app.request("PATCH", "/api/admin/orders/1", { cookie: adminCookie(), body: {} })).status, 400);
+  assert.equal((await app.request("PATCH", "/api/admin/orders/1", { cookie: adminCookie(), body: { status: "non_retiree" } })).status, 200);
+});
+
+test("rupture : un article en rupture bloque la commande avec une explication", async () => {
+  soldOutProducts.add("igname");
+  try {
+    const res = await app.request("POST", "/api/cart/check", { body: { items: [{ key: "a", type: "product", slug: "igname", qty: 1 }] } });
+    assert.equal(res.json.lines.length, 0);
+    assert.match(res.json.unavailable[0].reason, /rupture/);
+  } finally {
+    soldOutProducts.delete("igname");
+  }
+});
+
+test("panier : duplication hors vente avec un nom unique ; inconnu -> 404", async () => {
+  basketCurrentName = "Panier Familial";
+  const res = await app.request("POST", "/api/admin/baskets/3/duplicate", { cookie: adminCookie() });
+  assert.equal(res.status, 200);
+  const insert = calls.find((c) => c.text.includes("INSERT INTO baskets") && c.text.includes("SELECT $1, $2"));
+  assert.equal(insert.params[1], "Panier Familial (copie)");
+  basketCurrentName = null;
+  assert.equal((await app.request("POST", "/api/admin/baskets/3/duplicate", { cookie: adminCookie() })).status, 404);
+});
+
+test("rappel : inscription au checkout (avec email) et désinscription par jeton", async () => {
+  await app.request("POST", "/api/orders", { body: { customer: { name: "Marie", phone: "0696000000", email: "Marie@Example.com", reminder: true }, items: orderBody.items } });
+  const sub = calls.find((c) => c.text.includes("INSERT INTO reminder_subscribers"));
+  assert.equal(sub.params[0], "marie@example.com");
+  calls.length = 0;
+  await app.request("POST", "/api/orders", { body: { customer: { name: "Marie", phone: "0696000000", reminder: true }, items: orderBody.items } });
+  assert.ok(!calls.some((c) => c.text.includes("reminder_subscribers")), "pas d'email, pas d'inscription");
+
+  assert.equal((await app.request("POST", "/api/reminders/unsubscribe", { body: { token: "pas-un-jeton" } })).status, 404);
+  const ok = await app.request("POST", "/api/reminders/unsubscribe", { body: { token: "a".repeat(32) } });
+  assert.equal(ok.status, 200);
 });
 
 test("retrait : le code retrouve la commande, avec ou sans tiret", async () => {

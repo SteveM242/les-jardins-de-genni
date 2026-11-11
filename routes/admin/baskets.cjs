@@ -61,6 +61,23 @@ router.post("/", async (req, res) => {
   res.json({ ok: true, basket: withImageUrl("baskets", rows[0]) });
 });
 
+// Duplique un panier (hors vente) : pratique pour préparer la semaine suivante à partir de la précédente.
+router.post("/:id/duplicate", async (req, res) => {
+  const { rows: source } = await query("SELECT name FROM baskets WHERE id = $1", [req.params.id]);
+  if (!source[0]) return res.status(404).json({ ok: false, error: "Panier introuvable." });
+  const base = source[0].name.slice(0, 60);
+  let name = `${base} (copie)`;
+  for (let copy = 2; await nameTaken(name, 0); copy += 1) name = `${base} (copie ${copy})`;
+  const slug = await uniqueSlug(slugify(name));
+  const { rows } = await query(
+    `INSERT INTO baskets (slug, name, icon, image, price, summary, details, origin, item_count, items, composition, active)
+     SELECT $1, $2, icon, image, price, summary, details, origin, item_count, items, composition, false FROM baskets WHERE id = $3
+     RETURNING ${BASKET_COLUMNS}`,
+    [slug, name, req.params.id]
+  );
+  res.json({ ok: true, basket: withImageUrl("baskets", rows[0]) });
+});
+
 router.patch("/:id", async (req, res) => {
   let input;
   try {

@@ -14,7 +14,8 @@ const {
   roundMoney
 } = require("../lib/pricing.cjs");
 const { resolveLines, findPriceChanges } = require("../lib/cart.cjs");
-const { DesiredDateError, parseDesiredDate } = require("../lib/dates.cjs");
+const { currentSales } = require("../lib/sales.cjs");
+const { subscribe } = require("../lib/reminders.cjs");
 
 const router = express.Router();
 
@@ -46,12 +47,14 @@ router.post("/cart/check", async (req, res) => {
   const requested = Array.isArray(req.body.items) ? req.body.items : [];
   const { lines, unavailable, adjusted } = await resolveLines(requested, { query });
   const priceChanges = findPriceChanges(requested, lines);
+  const sales = await currentSales();
   res.json({
     ok: true,
     lines: lines.map((line) => ({ ...line, lineTotal: roundMoney(line.price * line.qty) })),
     unavailable,
     adjusted,
     priceChanges,
+    sales,
     subtotal: computeSubtotal(lines)
   });
 });
@@ -59,6 +62,17 @@ router.post("/cart/check", async (req, res) => {
 router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
   if (req.body.website) {
     return res.json({ ok: true, orderId: "spam-ignored" });
+  }
+
+  // Une seule session de vente par semaine : hors session, on n'enregistre rien.
+  const sales = await currentSales();
+  if (!sales.open) {
+    return res.status(403).json({
+      ok: false,
+      code: "SALES_CLOSED",
+      error: sales.closedMessage || "La vente est fermée pour le moment. Elle rouvre le samedi et ferme le lundi soir : revenez à ce moment-là.",
+      sales
+    });
   }
 
   const customerInfo = req.body.customer || {};
@@ -76,13 +90,8 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
     return res.status(400).json({ ok: false, error: "Merci d'indiquer l'adresse de livraison." });
   }
 
-  let desiredDate;
-  try {
-    desiredDate = parseDesiredDate(customerInfo.desiredDate);
-  } catch (err) {
-    if (err instanceof DesiredDateError) return res.status(400).json({ ok: false, error: err.message });
-    throw err;
-  }
+  // Le retrait a lieu le mercredi qui suit la session : la date n'est plus saisie par le client.
+  const desiredDate = sales.pickupDate;
 
   const requestedItems = Array.isArray(req.body.items) ? req.body.items : [];
   if (requestedItems.length === 0) {
@@ -173,6 +182,9 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
 
   const total = computeTotal(subtotal, discountAmount);
   const placed = { orderNumber, name, phone, email, fulfillment, address, notes, items, subtotal, discountAmount, total, desiredDate };
+  if (customerInfo.reminder === true && email) {
+    subscribe({ query }, { email, name }).catch((err) => console.error("[orders] échec inscription au rappel:", err.message));
+  }
   sendOrderEmail(placed).catch((err) => console.error("[orders] échec envoi email:", err.message));
 
   res.json({ ok: true, orderId: orderNumber, subtotal, discountAmount, total, customer: { name } });

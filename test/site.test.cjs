@@ -88,7 +88,9 @@ test("GET /api/site : réseaux complétés, photos actives avec URL versionnée,
   assert.deepEqual(res.json.gallery.map((g) => g.id), [2, 5]);
   assert.equal(res.json.gallery[0].url, `/api/gallery/2/image?v=${new Date(updatedAt).getTime()}`);
   assert.equal(res.json.gallery[0].caption, "Le vent dans les bananiers");
-  assert.match(res.headers.get("cache-control"), /max-age=60/);
+  assert.match(res.headers.get("cache-control"), /max-age=15/);
+  assert.equal(res.json.salesStatus.mode, "auto");
+  assert.ok(typeof res.json.salesStatus.open === "boolean");
 });
 
 test("photo de galerie servie avec un cache long ; inconnue -> 404", async () => {

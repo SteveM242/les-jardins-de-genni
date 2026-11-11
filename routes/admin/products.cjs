@@ -32,17 +32,23 @@ router.post("/", async (req, res) => {
   res.json({ ok: true, product: withImageUrl("products", rows[0]) });
 });
 
+// Nouvelle semaine : tous les articles redeviennent disponibles.
+router.post("/restock", async (_req, res) => {
+  const { rowCount } = await query("UPDATE products SET sold_out = false WHERE sold_out = true");
+  res.json({ ok: true, restocked: rowCount || 0 });
+});
+
 router.patch("/:id", async (req, res) => {
-  const { name, unit, price, category, active } = req.body;
+  const { name, unit, price, category, active, soldOut } = req.body;
   if (price != null && (!Number.isFinite(Number(price)) || Number(price) <= 0)) {
     return res.status(400).json({ ok: false, error: "Le prix doit être supérieur à 0." });
   }
   const { rows } = await query(
     `UPDATE products SET
        name = COALESCE($1, name), unit = COALESCE($2, unit), price = COALESCE($3, price),
-       category = COALESCE($4, category), active = COALESCE($5, active)
+       category = COALESCE($4, category), active = COALESCE($5, active), sold_out = COALESCE($7, sold_out)
      WHERE id = $6 RETURNING ${PRODUCT_COLUMNS}`,
-    [name, unit, price, category, active, req.params.id]
+    [name, unit, price, category, active, req.params.id, typeof soldOut === "boolean" ? soldOut : null]
   );
   if (!rows[0]) return res.status(404).json({ ok: false, error: "Article introuvable." });
   res.json({ ok: true, product: withImageUrl("products", rows[0]) });

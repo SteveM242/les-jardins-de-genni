@@ -4,6 +4,7 @@ const { numericId } = require("../lib/params.cjs");
 const { parseDataUri } = require("../lib/images.cjs");
 const { normalizeStoredSocials, galleryImageUrl } = require("../lib/siteContent.cjs");
 const { sectionsFromRows, publicSections } = require("../lib/siteSections.cjs");
+const { salesStatus } = require("../lib/salesWindow.cjs");
 
 const router = express.Router();
 router.param("id", numericId);
@@ -16,12 +17,15 @@ router.get("/site", async (_req, res) => {
     query("SELECT id, caption, image_updated_at FROM gallery_images WHERE active = true ORDER BY position, id")
   ]);
   const socials = settings.find((row) => row.key === "socials")?.value;
-  res.set("Cache-Control", "public, max-age=60");
+  const sections = sectionsFromRows(settings);
+  // Le statut de la vente dépend de l'heure : pas de cache long sur cette réponse.
+  res.set("Cache-Control", "public, max-age=15");
   res.json({
     ok: true,
+    salesStatus: { ...salesStatus(sections.sales.mode), closedMessage: sections.sales.closedMessage },
     socials: normalizeStoredSocials(socials),
     gallery: gallery.map((row) => ({ id: row.id, caption: row.caption, url: galleryImageUrl(row) })),
-    ...publicSections(sectionsFromRows(settings))
+    ...publicSections(sections)
   });
 });
 

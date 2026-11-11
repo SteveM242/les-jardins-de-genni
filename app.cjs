@@ -50,6 +50,7 @@ function createApp() {
   app.use("/api", require("./routes/catalog.cjs"));
   app.use("/api", require("./routes/site.cjs"));
   app.use("/api", require("./routes/orders.cjs"));
+  app.use("/api", require("./routes/reminders.cjs"));
   app.use("/api", require("./routes/customer.cjs"));
   app.use("/api/admin", require("./routes/admin/index.cjs"));
 

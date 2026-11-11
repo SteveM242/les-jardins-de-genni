@@ -131,7 +131,7 @@ test("composition : valeurs par défaut, doublons et incohérences", () => {
     maxItems: 4,
     entries: [{ name: " Salade ", qty: 1, max: 2 }, { name: "Oeufs", qty: 2 }, { name: "Blettes", kind: "replacement" }]
   });
-  assert.deepEqual(comp.entries[2], { name: "Blettes", qty: 0, max: 1, kind: "replacement", note: "" });
+  assert.deepEqual(comp.entries[2], { name: "Blettes", qty: 0, max: 1, kind: "replacement", note: "", soldOut: false });
   assert.equal(comp.entries[0].name, "Salade");
   assert.deepEqual(defaultSelection(comp), [{ name: "Salade", qty: 1 }, { name: "Oeufs", qty: 2 }]);
   const bad = (raw) => assert.throws(() => parseComposition(raw), CompositionError);
