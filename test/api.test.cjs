@@ -395,6 +395,15 @@ test("panier personnalisable : remplacements et doubles acceptés, prix fixe, co
   assert.equal(stored[0].price, 34);
 });
 
+test("panier personnalisable : un ancien choix invalide bloque la commande (409) avec un choix corrigé", async () => {
+  const res = await app.request("POST", "/api/orders", {
+    body: { customer, items: [{ key: "f1", type: "basket", slug: "panier-familial", qty: 1, selection: [{ name: "Truffe", qty: 1 }, { name: "Salade", qty: 1 }] }] }
+  });
+  assert.equal(res.status, 409);
+  assert.equal(res.json.code, "SELECTION_CHANGED");
+  assert.deepEqual(res.json.adjusted[0].selection, [{ name: "Salade", qty: 1 }]);
+});
+
 test("panier personnalisable : dépassement du total, du maximum ou article inconnu signalés", async () => {
   // /cart/check relit le panier comme la commande, sans enregistrer ni limiter le débit.
   const check = async (selection) => {
@@ -405,10 +414,16 @@ test("panier personnalisable : dépassement du total, du maximum ou article inco
   };
   const tooMany = await check([{ name: "Salade", qty: 2 }, { name: "Poireaux", qty: 2 }]);
   assert.equal(tooMany.lines.length, 0);
-  assert.match(tooMany.unavailable[0].reason, /3 articles/);
-  assert.match((await check([{ name: "Salade", qty: 3 }])).unavailable[0].reason, /2 maximum/);
-  assert.match((await check([{ name: "Truffe", qty: 1 }])).unavailable[0].reason, /ne fait pas partie/);
-  assert.match((await check([{ name: "Salade", qty: 0 }])).unavailable[0].reason, /au moins un article/);
+  assert.equal(tooMany.unavailable.length, 0);
+  assert.match(tooMany.adjusted[0].reason, /3 articles/);
+  assert.match((await check([{ name: "Salade", qty: 3 }])).adjusted[0].reason, /2 maximum/);
+  assert.match((await check([{ name: "Truffe", qty: 1 }])).adjusted[0].reason, /ne fait pas partie/);
+  assert.match((await check([{ name: "Salade", qty: 0 }])).adjusted[0].reason, /au moins un article/);
+  // Le serveur propose un choix corrigé au lieu de jeter la ligne.
+  const fix = (await check([{ name: "Salade", qty: 2 }, { name: "Poireaux", qty: 2 }])).adjusted[0];
+  assert.equal(fix.key, "f1");
+  assert.deepEqual(fix.selection, [{ name: "Salade", qty: 2 }, { name: "Poireaux", qty: 1 }]);
+  assert.ok(fix.changes.length > 0);
   // Sans choix précis (ancien panier, WhatsApp) : composition par défaut.
   const byDefault = await check(undefined);
   assert.equal(byDefault.lines.length, 1);

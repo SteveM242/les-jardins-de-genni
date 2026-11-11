@@ -124,7 +124,7 @@ test("panier : une modification partielle ne contrôle que les champs fournis", 
   assert.deepEqual(parseBasketInput({ price: null, name: undefined }, { partial: true }), {});
 });
 
-const { parseComposition, resolveSelection, defaultSelection, CompositionError } = require("../lib/composition.cjs");
+const { parseComposition, resolveSelection, reconcileSelection, defaultSelection, CompositionError } = require("../lib/composition.cjs");
 
 test("composition : valeurs par défaut, doublons et incohérences", () => {
   const comp = parseComposition({
@@ -153,4 +153,31 @@ test("composition : le choix du client est contrôlé sans ajustement silencieux
   assert.match(resolveSelection(comp, [{ name: "Z", qty: 1 }]).error, /ne fait pas partie/);
   assert.match(resolveSelection(comp, [{ name: "A", qty: -1 }]).error, /invalide/);
   assert.match(resolveSelection(comp, []).error, /au moins un article/);
+});
+
+test("composition : panier complet exigé", () => {
+  const raw = { maxItems: 3, requireFull: true, entries: [{ name: "A", qty: 2, max: 2 }, { name: "B", qty: 1, max: 2 }, { name: "C", kind: "replacement", max: 2 }] };
+  const comp = parseComposition(raw);
+  assert.equal(comp.requireFull, true);
+  assert.equal(parseComposition({ ...raw, requireFull: undefined }).requireFull, false);
+  // Les quantités par défaut doivent déjà faire le total, sinon le panier d'origine serait refusé.
+  assert.throws(() => parseComposition({ ...raw, maxItems: 4 }), CompositionError);
+  assert.match(resolveSelection(comp, [{ name: "A", qty: 1 }, { name: "B", qty: 1 }]).error, /exactement 3 articles/);
+  assert.ok(resolveSelection(comp, [{ name: "A", qty: 1 }, { name: "C", qty: 2 }]).selection);
+});
+
+test("composition : un ancien choix devenu invalide est corrigé et expliqué", () => {
+  const comp = parseComposition({ maxItems: 3, entries: [{ name: "A", qty: 2, max: 2 }, { name: "B", qty: 1, max: 2 }, { name: "C", kind: "replacement", max: 2 }] });
+  // Article retiré, maximum baissé, total dépassé : les remplacements partent en premier.
+  const fixed = reconcileSelection(comp, [{ name: "Z", qty: 1 }, { name: "A", qty: 5 }, { name: "C", qty: 2 }]);
+  assert.deepEqual(fixed.selection, [{ name: "A", qty: 2 }, { name: "C", qty: 1 }]);
+  assert.equal(fixed.changes.length, 3);
+  assert.ok(resolveSelection(comp, fixed.selection).selection);
+  // Plus rien de valable : retour au panier d'origine.
+  assert.deepEqual(reconcileSelection(comp, [{ name: "Z", qty: 1 }]).selection, defaultSelection(comp));
+  // Panier devenu « complet exigé » : complété avec les articles du panier.
+  const full = parseComposition({ maxItems: 3, requireFull: true, entries: [{ name: "A", qty: 2, max: 2 }, { name: "B", qty: 1, max: 2 }] });
+  const filled = reconcileSelection(full, [{ name: "A", qty: 1 }]);
+  assert.deepEqual(filled.selection, [{ name: "A", qty: 2 }, { name: "B", qty: 1 }]);
+  assert.ok(resolveSelection(full, filled.selection).selection);
 });

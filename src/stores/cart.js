@@ -150,7 +150,14 @@ function toPayload() {
 }
 
 // Aligne les prix locaux sur ceux du serveur (après relecture) et retire les lignes indisponibles.
-function applyServerCheck({ lines, unavailable }) {
+function applyServerCheck({ lines, unavailable, adjusted = [] }) {
+  // Choix corrigé par le serveur : la ligne reste dans le panier, avec la nouvelle sélection.
+  for (const fix of adjusted) {
+    const item = fix.key ? findByKey(fix.key) : null;
+    if (!item) continue;
+    item.selection = fix.selection.map(({ name, qty }) => ({ name, qty }));
+    item.contents = item.selection;
+  }
   for (const line of lines) {
     const item = findByKey(line.key);
     if (!item) continue;

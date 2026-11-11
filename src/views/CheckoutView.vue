@@ -157,15 +157,21 @@ watch(
 );
 
 // Applique le résultat d'une relecture serveur au panier local et prépare les messages.
-function absorbServerCheck({ lines = [], unavailable = [], priceChanges = [] }) {
+function absorbServerCheck({ lines = [], unavailable = [], adjusted = [], priceChanges = [] }) {
   notices.value = [
     ...unavailable.map((u) => ({ kind: "removed", text: `« ${u.name} » a été retiré de votre panier : ${u.reason}` })),
+    ...adjusted.map((a) => ({
+      kind: "adjusted",
+      text: `La composition de « ${a.name} » a changé, votre choix a été ajusté : ${a.changes.join(" ")} Vérifiez-le avant de confirmer.`,
+      slug: a.slug,
+      key: a.key
+    })),
     ...priceChanges.map((c) => ({
       kind: "price",
       text: `Le prix de « ${c.name} » est passé de ${formatPrice(c.previousPrice)} € à ${formatPrice(c.price)} €.`
     }))
   ];
-  cart.applyServerCheck({ lines, unavailable });
+  cart.applyServerCheck({ lines, unavailable, adjusted });
 }
 
 async function runReview() {
@@ -241,11 +247,17 @@ async function submitOrder() {
   if (!res.ok) {
     status.value = "error";
     // Le panier a changé entre la relecture et l'envoi : on remet le client devant ce qui a bougé.
-    if (res.status === 409 && (res.data?.unavailable || res.data?.priceChanges)) {
-      absorbServerCheck({ unavailable: res.data.unavailable || [], priceChanges: res.data.priceChanges || [] });
+    if (res.status === 409 && (res.data?.unavailable || res.data?.priceChanges || res.data?.adjusted)) {
+      absorbServerCheck({
+        unavailable: res.data.unavailable || [],
+        adjusted: res.data.adjusted || [],
+        priceChanges: res.data.priceChanges || []
+      });
       review.confirmed = false;
       errorMessage.value = res.error;
+      const kept = notices.value;
       await runReview();
+      notices.value = [...kept, ...notices.value];
       return;
     }
     errorMessage.value = res.error || "Une erreur est survenue. Réessayez ou passez par WhatsApp.";

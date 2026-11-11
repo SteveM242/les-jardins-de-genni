@@ -96,6 +96,10 @@ function handleAdd(goToCart) {
       toast.error("Choisissez au moins un article.");
       return;
     }
+    if (composition.value.requireFull && remaining.value > 0) {
+      toast.error(`Ce panier doit contenir exactement ${composition.value.maxItems} articles : il vous en reste ${remaining.value} à choisir.`);
+      return;
+    }
     cart.saveBasketSelection({ key: editingKey.value, basket: panier.value, selection: selection.value, qty: quantity });
     if (editingKey.value) {
       router.push("/commande");
@@ -132,7 +136,7 @@ function handleAdd(goToCart) {
             <p class="composer-help">
               Ce panier contient <strong>{{ composition.maxItems }} articles</strong>. Vous pouvez remplacer un article par un autre
               ou en prendre en double, <strong>sans changer le prix</strong>, tant que le total ne dépasse pas
-              {{ composition.maxItems }} articles. Pour remplacer un article : mettez-le à <strong>0</strong>, puis choisissez
+              {{ composition.maxItems }} articles<template v-if="composition.requireFull"> (le panier doit être <strong>complet</strong> pour être commandé)</template>. Pour remplacer un article : mettez-le à <strong>0</strong>, puis choisissez
               1 ou 2 dans les articles de remplacement.
             </p>
 

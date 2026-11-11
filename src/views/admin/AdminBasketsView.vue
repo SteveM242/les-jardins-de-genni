@@ -198,6 +198,7 @@ function startComposition(basket) {
     ? cloneComposition(basket.composition)
     : {
         maxItems: Math.max(basket.items.length, 1),
+        requireFull: false,
         entries: basket.items.map((name) => ({ name, qty: 1, max: 2, kind: "base", note: "" }))
       };
 }
@@ -244,6 +245,7 @@ function compositionProblems(draft) {
   }
   const total = defaultTotal(draft);
   const limit = Number(draft.maxItems);
+  if (draft.requireFull && total !== limit) problems.push(`Pour exiger un panier complet, les quantités par défaut (${total}) doivent atteindre le total (${limit}).`);
   if (!Number.isInteger(limit) || limit < 1 || limit > 60) problems.push("Le total d'articles doit être entre 1 et 60.");
   else if (total > limit) problems.push(`Les quantités par défaut (${total}) dépassent le total autorisé (${limit}).`);
   if (total === 0) problems.push("Au moins un article doit avoir une quantité par défaut supérieure à 0.");
@@ -255,6 +257,7 @@ async function saveComposition(basket) {
   if (compositionProblems(draft).length) return;
   const payload = {
     maxItems: Number(draft.maxItems),
+    requireFull: Boolean(draft.requireFull),
     entries: draft.entries.map((entry) => ({
       name: entry.name.trim(),
       qty: Number(entry.qty),
@@ -404,6 +407,14 @@ onMounted(async () => {
             <input v-model.number="compDrafts[basket.id].maxItems" type="number" min="1" max="60" />
           </label>
 
+          <label class="composition-full">
+            <input v-model="compDrafts[basket.id].requireFull" type="checkbox" />
+            <span>
+              Exiger un panier <strong>complet</strong> (exactement {{ compDrafts[basket.id].maxItems }} articles pour commander)
+              <small>Sinon, le client peut commander moins d'articles au même prix.</small>
+            </span>
+          </label>
+
           <div class="entry-head" aria-hidden="true">
             <span>Article</span><span>Type</span><span>Par défaut</span><span>Maximum</span><span>Précision (provenance, quantité…)</span><span></span>
           </div>
@@ -489,6 +500,18 @@ onMounted(async () => {
   gap: 10px;
   font-size: 13px;
   font-weight: 600;
+}
+
+.composition-full {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.composition-full small {
+  display: block;
+  color: var(--muted);
 }
 
 .composition-total input {

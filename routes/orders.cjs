@@ -44,12 +44,13 @@ router.post("/discounts/validate", rateLimits.discounts, async (req, res) => {
 // sert à l'étape de relecture avant l'envoi de la commande.
 router.post("/cart/check", async (req, res) => {
   const requested = Array.isArray(req.body.items) ? req.body.items : [];
-  const { lines, unavailable } = await resolveLines(requested, { query });
+  const { lines, unavailable, adjusted } = await resolveLines(requested, { query });
   const priceChanges = findPriceChanges(requested, lines);
   res.json({
     ok: true,
     lines: lines.map((line) => ({ ...line, lineTotal: roundMoney(line.price * line.qty) })),
     unavailable,
+    adjusted,
     priceChanges,
     subtotal: computeSubtotal(lines)
   });
@@ -88,7 +89,7 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
     return res.status(400).json({ ok: false, error: "Le panier est vide." });
   }
 
-  const { lines, unavailable } = await resolveLines(requestedItems, { query });
+  const { lines, unavailable, adjusted } = await resolveLines(requestedItems, { query });
 
   // Jamais d'article ignoré en silence : le client doit voir ce qui change avant de confirmer.
   if (unavailable.length > 0) {
@@ -97,6 +98,14 @@ router.post("/orders", rateLimits.orders, attachCustomer, async (req, res) => {
       code: "ITEMS_UNAVAILABLE",
       error: "Certains articles de votre panier ne sont plus disponibles. Vérifiez votre panier avant de confirmer.",
       unavailable
+    });
+  }
+  if (adjusted.length > 0) {
+    return res.status(409).json({
+      ok: false,
+      code: "SELECTION_CHANGED",
+      error: "La composition d'un panier a changé depuis votre choix. Vérifiez votre panier avant de confirmer.",
+      adjusted
     });
   }
   const priceChanges = findPriceChanges(requestedItems, lines);
