@@ -17,9 +17,24 @@ export const site = reactive({
 
   // Rythme hebdomadaire : une seule session de vente par semaine, retrait le mercredi.
   weeklyCycle: [
-    { day: "Samedi", title: "La vente ouvre", text: "Découvrez les produits de la semaine et passez commande." },
-    { day: "Lundi soir", title: "La vente ferme", text: "Dernier moment pour commander : ensuite, rendez-vous à la session suivante." },
-    { day: "Mercredi", title: "Retrait des commandes", text: "Venez récupérer votre commande, préparée pour vous." }
+    {
+      icon: "🛒",
+      day: "Samedi",
+      title: "La vente ouvre",
+      text: "Découvrez les produits de la semaine et passez commande en ligne ou sur WhatsApp. Vous avez jusqu'à lundi soir pour choisir."
+    },
+    {
+      icon: "⏰",
+      day: "Lundi soir",
+      title: "La vente ferme",
+      text: "Dernier moment pour commander. Ensuite, les commandes sont préparées ; si vous avez raté la session, rendez-vous le samedi suivant."
+    },
+    {
+      icon: "🧺",
+      day: "Mercredi",
+      title: "Retrait des commandes",
+      text: "Venez récupérer votre commande préparée pour vous. L'Héritage des Mornes vous confirme l'heure et le lieu."
+    }
   ],
 
   // Les étapes s'adaptent : pas de mention de WhatsApp tant que le numéro n'est pas configuré.
