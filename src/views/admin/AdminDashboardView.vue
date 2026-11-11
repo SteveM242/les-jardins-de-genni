@@ -6,9 +6,13 @@ import CartLineContents from "../../components/CartLineContents.vue";
 import { api } from "../../api.js";
 import { customerWhatsappLink } from "../../data/site.js";
 import { useToast } from "../../stores/toast.js";
+import { useSiteContent } from "../../stores/siteContent.js";
 import { formatOrderCode } from "../../utils/orderCode.js";
 
 const toast = useToast();
+const siteContent = useSiteContent();
+// Session de vente en cours (réglable dans « Contenu du site »).
+const sales = computed(() => siteContent.state.sales);
 
 // « À compléter » : ce qu'il manque avant d'annoncer le site (coordonnées, présentation, mentions légales…).
 const todo = ref([]);
@@ -107,15 +111,21 @@ async function findByCode() {
   pickupLoading.value = true;
   pickupError.value = "";
   pickupOrder.value = null;
+  collected.value = true;
   const res = await api(`/api/admin/orders/code/${encodeURIComponent(code)}`);
   pickupLoading.value = false;
   if (res.ok) pickupOrder.value = res.data.order;
   else pickupError.value = res.error || "Code introuvable.";
 }
 
+// Case « encaissé » cochée par défaut : la remise sert aussi à noter le paiement.
+const collected = ref(true);
+
 async function handOver() {
   const order = pickupOrder.value;
-  const res = await api(`/api/admin/orders/${order.id}`, { method: "PATCH", body: { status: "livree" } });
+  const body = { status: "livree" };
+  if (!order.paid && collected.value) body.paid = true;
+  const res = await api(`/api/admin/orders/${order.id}`, { method: "PATCH", body });
   if (!res.ok) {
     toast.error(res.error);
     return;
@@ -139,6 +149,9 @@ const page = ref(1);
 const loading = ref(true);
 const loadError = ref("");
 const activeFilter = ref("all");
+const unpaidOnly = ref(false);
+const exportFrom = ref("");
+const exportTo = ref("");
 const search = ref("");
 
 const statuses = [
@@ -146,6 +159,7 @@ const statuses = [
   { value: "confirmee", label: "Confirmée" },
   { value: "prete", label: "Prête" },
   { value: "livree", label: "Livrée" },
+  { value: "non_retiree", label: "Non retirée" },
   { value: "annulee", label: "Annulée" }
 ];
 
@@ -165,6 +179,7 @@ async function loadOrders({ silent = false } = {}) {
   const params = new URLSearchParams({ page: String(page.value) });
   if (activeFilter.value !== "all") params.set("status", activeFilter.value);
   if (search.value.trim()) params.set("q", search.value.trim());
+  if (unpaidOnly.value) params.set("paid", "0");
 
   const res = await api(`/api/admin/orders?${params}`);
   if (res.ok) {
@@ -193,6 +208,38 @@ async function updateStatus(order, status) {
   await loadOrders({ silent: true });
 }
 
+async function togglePaid(order) {
+  const res = await api(`/api/admin/orders/${order.id}`, { method: "PATCH", body: { paid: !order.paid } });
+  if (!res.ok) {
+    toast.error(res.error);
+    return;
+  }
+  toast.success(res.data.order.paid ? `Commande ${formatOrderCode(order.order_number)} : payée.` : `Commande ${formatOrderCode(order.order_number)} : paiement retiré.`);
+  await loadOrders({ silent: true });
+}
+
+// « Prête » mais le jour de retrait est passé : probablement non retirée.
+function todayIso() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+function isOverdue(order) {
+  return order.status === "prete" && Boolean(order.desired_date) && String(order.desired_date).slice(0, 10) < todayIso();
+}
+
+// Message WhatsApp adapté à l'étape : « prête » donne le code, le jour et le montant.
+function whatsappText(order) {
+  const code = formatOrderCode(order.order_number);
+  if (order.status === "prete") {
+    const day = order.desired_date ? ` le ${formatDay(String(order.desired_date).slice(0, 10))}` : "";
+    return `Bonjour ${order.name}, votre commande est prête${day}. Code de retrait : ${code}. Total à régler : ${order.total} €. L'Héritage des Mornes`;
+  }
+  if (order.status === "non_retiree") {
+    return `Bonjour ${order.name}, votre commande (code ${code}) n'a pas été retirée. Pouvons-nous convenir d'un autre moment ? L'Héritage des Mornes`;
+  }
+  return `Bonjour ${order.name}, c'est L'Héritage des Mornes à propos de votre commande (code ${code}).`;
+}
+
 function goToPage(next) {
   page.value = Math.min(Math.max(1, next), pageCount.value);
   loadOrders();
@@ -212,7 +259,7 @@ function formatDate(iso) {
   });
 }
 
-watch(activeFilter, () => {
+watch([activeFilter, unpaidOnly], () => {
   page.value = 1;
   loadOrders();
 });
@@ -263,6 +310,15 @@ onBeforeUnmount(() => {
         </li>
       </ul>
     </aside>
+
+    <p v-if="sales" class="sales-pill" :class="sales.open ? 'open' : 'closed'" role="status">
+      <span class="dot" aria-hidden="true"></span>
+      <strong>{{ sales.open ? "Vente ouverte" : "Vente fermée" }}</strong>
+      <span v-if="sales.mode !== 'auto'"> (mode manuel)</span>
+      · retrait le {{ formatDay(sales.pickupDate) }}
+      <RouterLink :to="{ path: '/admin/contenu', hash: '#sales' }">Modifier</RouterLink>
+      <RouterLink to="/admin/preparation" class="pill-link">Liste de préparation →</RouterLink>
+    </p>
 
     <section v-if="stats" class="stats" aria-label="Chiffres clés">
       <div class="stat">
@@ -326,7 +382,10 @@ onBeforeUnmount(() => {
           <CartLineContents :line="item" open />
         </div>
         <p v-if="pickupOrder.notes" class="notes">{{ pickupOrder.notes }}</p>
-        <p class="pickup-total">À encaisser : <strong>{{ pickupOrder.total }} €</strong></p>
+        <p class="pickup-total">
+          <template v-if="pickupOrder.paid">Déjà payée : <strong>{{ pickupOrder.total }} €</strong> ✓</template>
+          <template v-else>À encaisser : <strong>{{ pickupOrder.total }} €</strong></template>
+        </p>
 
         <p v-if="pickupOrder.status === 'livree'" class="pickup-warn">Cette commande a déjà été remise.</p>
         <p v-else-if="pickupOrder.status === 'annulee'" class="pickup-warn">Cette commande a été annulée : ne pas servir.</p>
@@ -334,6 +393,10 @@ onBeforeUnmount(() => {
           <p v-if="pickupOrder.status !== 'prete'" class="pickup-warn">
             Cette commande n'est pas encore marquée « Prête » (statut : {{ statusLabels[pickupOrder.status] }}).
           </p>
+          <label v-if="!pickupOrder.paid" class="collect-check">
+            <input v-model="collected" type="checkbox" /> J'ai encaissé {{ pickupOrder.total }} €
+          </label>
+          <p v-if="!pickupOrder.paid && !collected" class="pickup-warn">Le paiement restera noté « à encaisser ».</p>
           <button type="button" class="btn primary" @click="handOver">✓ Remettre la commande</button>
         </template>
       </article>
@@ -363,22 +426,45 @@ onBeforeUnmount(() => {
       >
         {{ s.label }} ({{ counts[s.value] || 0 }})
       </button>
+      <button type="button" class="filter-chip" :class="{ active: unpaidOnly }" :aria-pressed="unpaidOnly" @click="unpaidOnly = !unpaidOnly">
+        💶 À encaisser
+      </button>
     </div>
+
+    <details class="export-box">
+      <summary>Exporter les commandes (CSV pour la comptabilité)</summary>
+      <form class="export-form" method="get" action="/api/admin/orders/export.csv">
+        <label>Du <input v-model="exportFrom" type="date" name="from" /></label>
+        <label>Au <input v-model="exportTo" type="date" name="to" /></label>
+        <label>
+          Statut
+          <select name="status">
+            <option value="">Tous</option>
+            <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
+          </select>
+        </label>
+        <button type="submit" class="btn ghost">Télécharger</button>
+      </form>
+    </details>
 
     <p v-if="loading">Chargement…</p>
     <LoadError v-else-if="loadError" :message="loadError" @retry="loadOrders" />
     <p v-else-if="orders.length === 0" class="empty-filter">
-      {{ search || activeFilter !== "all" ? "Aucune commande ne correspond à ce filtre." : "Aucune commande pour le moment." }}
+      {{ search || activeFilter !== "all" || unpaidOnly ? "Aucune commande ne correspond à ce filtre." : "Aucune commande pour le moment." }}
     </p>
 
     <div v-else class="orders-list">
-      <article v-for="order in orders" :key="order.id" class="order-card" :class="{ 'is-new': order.status === 'nouvelle' }">
+      <article v-for="order in orders" :key="order.id" class="order-card" :class="{ 'is-new': order.status === 'nouvelle', 'is-overdue': isOverdue(order) }">
         <div class="order-header">
           <div>
             <strong class="order-number">Code {{ formatOrderCode(order.order_number) }}</strong>
             <span class="order-date">{{ formatDate(order.created_at) }}</span>
           </div>
-          <span class="status-badge" :class="`status-${order.status}`">{{ statusLabels[order.status] }}</span>
+          <span class="badges">
+            <span v-if="isOverdue(order)" class="status-badge status-overdue">Retrait passé : non retirée ?</span>
+            <span class="status-badge" :class="order.paid ? 'paid' : 'unpaid'">{{ order.paid ? "Payée" : "À encaisser" }}</span>
+            <span class="status-badge" :class="`status-${order.status}`">{{ statusLabels[order.status] }}</span>
+          </span>
         </div>
 
         <div class="order-body">
@@ -406,7 +492,7 @@ onBeforeUnmount(() => {
           <div class="order-col">
             <p class="col-label">{{ order.fulfillment === "livraison" ? "Livraison" : "Retrait" }}</p>
             <p v-if="order.fulfillment === 'livraison' && order.address">{{ order.address }}</p>
-            <p v-if="order.desired_date" class="desired">Jour souhaité : {{ formatDay(order.desired_date) }}</p>
+            <p v-if="order.desired_date" class="desired">{{ order.fulfillment === "livraison" ? "Livraison" : "Retrait" }} : {{ formatDay(order.desired_date) }}</p>
             <p v-if="order.notes" class="notes">{{ order.notes }}</p>
           </div>
 
@@ -418,7 +504,7 @@ onBeforeUnmount(() => {
 
         <div class="order-footer">
           <a
-            :href="customerWhatsappLink(order.phone, `Bonjour ${order.name}, c'est L'Héritage des Mornes à propos de votre commande (code ${formatOrderCode(order.order_number)}).`)"
+            :href="customerWhatsappLink(order.phone, whatsappText(order))"
             target="_blank"
             rel="noreferrer"
             class="btn ghost whatsapp-link"
@@ -432,6 +518,10 @@ onBeforeUnmount(() => {
           >
             <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
           </select>
+          <button type="button" class="btn ghost" @click="togglePaid(order)">
+            {{ order.paid ? "Retirer le paiement" : "💶 Marquer payée" }}
+          </button>
+          <button v-if="isOverdue(order)" type="button" class="btn ghost" @click="updateStatus(order, 'non_retiree')">Marquer non retirée</button>
           <button
             v-if="nextStatus[order.status]"
             type="button"
@@ -797,6 +887,103 @@ h1 {
 .filter-chip.status-livree:not(.active) {
   background: #c6e8d0;
   color: var(--green-dark);
+}
+
+.status-badge.status-non_retiree,
+.filter-chip.status-non_retiree:not(.active),
+.status-badge.status-overdue {
+  background: #fdebd0;
+  color: #8a4b08;
+}
+
+.status-badge.paid {
+  background: #c6e8d0;
+  color: var(--green-dark);
+}
+
+.status-badge.unpaid {
+  background: #fdf0e6;
+  color: #8a4b08;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.order-card.is-overdue {
+  border-color: #e0a15a;
+}
+
+.sales-pill {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.sales-pill.open {
+  background: var(--green-soft);
+}
+
+.sales-pill.closed {
+  background: #fdf0e6;
+}
+
+.sales-pill .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pill-link {
+  margin-left: auto;
+  font-weight: 700;
+}
+
+.collect-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+  font-weight: 600;
+}
+
+.export-box {
+  margin: 0 0 14px;
+  font-size: 14px;
+}
+
+.export-box summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.export-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  margin-top: 8px;
+}
+
+.export-form label {
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.export-form input,
+.export-form select {
+  font: inherit;
+  padding: 6px 8px;
 }
 
 .status-badge.status-annulee,

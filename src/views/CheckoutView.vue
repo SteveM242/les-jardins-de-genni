@@ -20,14 +20,19 @@ const MAX_QTY = 50;
 
 const siteContent = useSiteContent();
 
-// Jour souhaité : de aujourd'hui à +60 jours (le serveur revérifie).
-function isoDay(offset = 0) {
-  const date = new Date();
-  date.setDate(date.getDate() + offset);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-const minDay = isoDay(0);
-const maxDay = isoDay(60);
+// Session de vente (donnée par le serveur) : hors session, on ne peut pas commander.
+const salesClosed = computed(() => siteContent.state.sales?.open === false);
+const salesMessage = computed(() => {
+  const sales = siteContent.state.sales;
+  if (!sales || sales.open) return "";
+  return (
+    sales.closedMessage ||
+    (sales.mode === "closed"
+      ? "La vente est fermée pour le moment."
+      : `La vente est fermée : elle rouvre samedi${sales.opensInDays ? ` (dans ${sales.opensInDays} jour${sales.opensInDays > 1 ? "s" : ""})` : ""} et ferme le lundi soir.`)
+  );
+});
+const pickupDate = computed(() => siteContent.state.sales?.pickupDate || "");
 
 function formatDay(day) {
   return new Date(`${day}T00:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
@@ -41,11 +46,11 @@ const form = reactive({
   fulfillment: "retrait",
   address: "",
   notes: "",
-  desiredDate: "",
+  reminder: false, // rappel du lundi par email
   website: "" // honeypot — doit rester vide
 });
 
-const errors = reactive({ name: "", phone: "", email: "", address: "", desiredDate: "" });
+const errors = reactive({ name: "", phone: "", email: "", address: "" });
 
 // Infos de retrait / livraison saisies par L'Héritage des Mornes, rappelées sous le choix du mode.
 const modeInfo = computed(() =>
@@ -74,11 +79,7 @@ function fieldErrors() {
       ? ""
       : "Merci d'indiquer un numéro de téléphone valide (8 chiffres minimum).",
     email: !form.email.trim() || /^\S+@\S+\.\S+$/.test(form.email.trim()) ? "" : "Cette adresse email semble incorrecte.",
-    address: form.fulfillment === "livraison" && !form.address.trim() ? "Merci d'indiquer l'adresse de livraison." : "",
-    desiredDate:
-      form.desiredDate && (form.desiredDate < minDay || form.desiredDate > maxDay)
-        ? "Choisissez un jour dans les 60 prochains jours."
-        : ""
+    address: form.fulfillment === "livraison" && !form.address.trim() ? "Merci d'indiquer l'adresse de livraison." : ""
   };
 }
 
@@ -185,6 +186,7 @@ async function runReview() {
     review.error = res.error;
     return;
   }
+  siteContent.setSales(res.data.sales);
   absorbServerCheck(res.data);
   if (discount.value) await applyDiscount({ silent: true });
   review.checked = true;
@@ -236,7 +238,7 @@ async function submitOrder() {
         fulfillment: form.fulfillment,
         address: form.fulfillment === "livraison" ? form.address : "",
         notes: form.notes,
-        desiredDate: form.desiredDate
+        reminder: form.reminder && Boolean(form.email.trim())
       },
       items: cart.toPayload(),
       discountCode: discount.value?.code || "",
@@ -246,6 +248,12 @@ async function submitOrder() {
 
   if (!res.ok) {
     status.value = "error";
+    if (res.status === 403 && res.data?.code === "SALES_CLOSED") {
+      siteContent.setSales(res.data.sales);
+      review.confirmed = false;
+      errorMessage.value = res.error;
+      return;
+    }
     // Le panier a changé entre la relecture et l'envoi : on remet le client devant ce qui a bougé.
     if (res.status === 409 && (res.data?.unavailable || res.data?.priceChanges || res.data?.adjusted)) {
       absorbServerCheck({
@@ -282,6 +290,11 @@ async function submitOrder() {
       <p class="eyebrow">Votre commande</p>
       <h1>Panier &amp; commande</h1>
       <WeeklyRhythm v-if="status !== 'success'" compact />
+
+      <p v-if="salesClosed && status !== 'success'" class="sales-closed" role="alert">
+        <strong>{{ salesMessage }}</strong>
+        Vous pouvez préparer votre panier dès maintenant : il sera conservé sur cet appareil.
+      </p>
 
       <div v-if="status === 'success'" class="success-box" role="status">
         <h2>Commande envoyée, merci {{ lastOrder?.customer?.name }} !</h2>
@@ -423,7 +436,7 @@ async function submitOrder() {
                 <strong>{{ formatPrice(total) }} €</strong>
               </div>
 
-              <button type="button" class="btn primary continue-btn" @click="goToStep(2)">Continuer →</button>
+              <button type="button" class="btn primary continue-btn" :disabled="salesClosed" @click="goToStep(2)">Continuer →</button>
 
               <a v-if="site.whatsappNumber" :href="whatsappCartLink(cart.items.value)" target="_blank" rel="noreferrer" class="whatsapp-alt">
                 Préférer commander ce panier sur WhatsApp
@@ -478,6 +491,10 @@ async function submitOrder() {
                   :aria-describedby="errors.email ? 'f-email-error' : undefined"
                 />
                 <p v-if="errors.email" id="f-email-error" class="field-error">{{ errors.email }}</p>
+                <label v-if="form.email" class="reminder-check">
+                  <input v-model="form.reminder" type="checkbox" />
+                  <span>Me rappeler par email le lundi si je n'ai pas encore commandé (désinscription en un clic).</span>
+                </label>
               </div>
 
               <fieldset class="fulfillment-field">
@@ -494,19 +511,10 @@ async function submitOrder() {
 
               <p v-if="modeInfo" class="mode-info">{{ modeInfo }}</p>
 
-              <div class="field">
-                <label for="f-date">Jour souhaité (facultatif)</label>
-                <input
-                  id="f-date"
-                  v-model="form.desiredDate"
-                  type="date"
-                  :min="minDay"
-                  :max="maxDay"
-                  :aria-invalid="errors.desiredDate ? 'true' : undefined"
-                  :aria-describedby="errors.desiredDate ? 'f-date-error' : undefined"
-                />
-                <p v-if="errors.desiredDate" id="f-date-error" class="field-error">{{ errors.desiredDate }}</p>
-              </div>
+              <p v-if="pickupDate" class="pickup-date">
+                🧺 {{ form.fulfillment === "livraison" ? "Livraison" : "Retrait" }} le <strong>{{ formatDay(pickupDate) }}</strong>
+                (une seule date par session de vente).
+              </p>
 
               <div v-if="form.fulfillment === 'livraison'" class="field">
                 <label for="f-address">Adresse de livraison *</label>
@@ -610,9 +618,9 @@ async function submitOrder() {
                     <dt>Email</dt>
                     <dd>{{ form.email }}</dd>
                   </template>
-                  <template v-if="form.desiredDate">
-                    <dt>Jour souhaité</dt>
-                    <dd>{{ formatDay(form.desiredDate) }}</dd>
+                  <template v-if="pickupDate">
+                    <dt>{{ form.fulfillment === "livraison" ? "Livraison" : "Retrait" }}</dt>
+                    <dd>{{ formatDay(pickupDate) }}</dd>
                   </template>
                   <template v-if="form.fulfillment === 'livraison'">
                     <dt>Adresse</dt>
@@ -643,7 +651,7 @@ async function submitOrder() {
                   <button
                     type="button"
                     class="btn primary"
-                    :disabled="!review.confirmed || status === 'sending'"
+                    :disabled="!review.confirmed || status === 'sending' || salesClosed"
                     @click="submitOrder"
                   >
                     {{ status === "sending" ? "Envoi en cours…" : "Confirmer et envoyer ma commande" }}
@@ -659,6 +667,33 @@ async function submitOrder() {
 </template>
 
 <style scoped>
+.sales-closed {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fdf0e6;
+  border: 1.5px solid var(--clay);
+  display: grid;
+  gap: 4px;
+}
+
+.pickup-date {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--green-soft);
+  font-size: 14px;
+}
+
+.reminder-check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .checkout {
   padding: 48px 0 80px;
   min-height: 60vh;

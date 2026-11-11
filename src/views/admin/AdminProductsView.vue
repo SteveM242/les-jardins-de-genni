@@ -4,6 +4,10 @@ import AdminNav from "../../components/admin/AdminNav.vue";
 import ImageUploader from "../../components/admin/ImageUploader.vue";
 import LoadError from "../../components/LoadError.vue";
 import { useAdminResource } from "../../composables/useAdminResource.js";
+import { api } from "../../api.js";
+import { useToast } from "../../stores/toast.js";
+
+const toast = useToast();
 
 const { items: products, loading, loadError, load, create, update, remove, applyUploaded } = useAdminResource({
   endpoint: "/api/admin/products",
@@ -34,6 +38,22 @@ async function updateProduct(product, patch) {
   setTimeout(() => {
     if (savedId.value === product.id) savedId.value = null;
   }, 1200);
+}
+
+const soldOutCount = computed(() => products.value.filter((product) => product.sold_out).length);
+
+// Nouvelle semaine : tout redevient disponible d'un clic.
+async function restockAll() {
+  if (!confirm(`Remettre en stock les ${soldOutCount.value} article(s) en rupture ?`)) return;
+  const res = await api("/api/admin/products/restock", { method: "POST" });
+  if (!res.ok) {
+    toast.error(res.error);
+    return;
+  }
+  products.value.forEach((product) => {
+    product.sold_out = false;
+  });
+  toast.success("Tous les articles sont de nouveau disponibles.");
 }
 
 function removeProduct(product) {
@@ -73,6 +93,11 @@ onMounted(load);
     <h1>Articles à la carte</h1>
     <p class="hint">Ce sont les articles que vos client·e·s peuvent ajouter un par un sur la page « À la carte ».</p>
 
+    <p v-if="soldOutCount" class="soldout-bar" role="status">
+      <strong>{{ soldOutCount }} article{{ soldOutCount > 1 ? "s" : "" }} en rupture cette semaine.</strong>
+      <button type="button" class="btn ghost" @click="restockAll">Tout remettre en stock</button>
+    </p>
+
     <form class="new-product" @submit.prevent="addProduct">
       <h2>Ajouter un article</h2>
       <div class="new-product-grid">
@@ -109,7 +134,7 @@ onMounted(load);
       <h2>{{ categoryLabels[category] }}</h2>
 
       <div class="products-grid">
-        <div v-for="product in grouped[category]" :key="product.id" class="product-card" :class="{ saved: savedId === product.id }">
+        <div v-for="product in grouped[category]" :key="product.id" class="product-card" :class="{ saved: savedId === product.id, soldout: product.sold_out }">
           <div class="product-head">
             <ImageUploader
               :image-url="product.image"
@@ -154,6 +179,14 @@ onMounted(load);
               />
               En vente
             </label>
+            <label class="active-toggle soldout-toggle">
+              <input
+                type="checkbox"
+                :checked="product.sold_out"
+                @change="updateProduct(product, { soldOut: $event.target.checked })"
+              />
+              Rupture cette semaine
+            </label>
             <button type="button" class="link-btn" @click="removeProduct(product)">Supprimer</button>
           </div>
         </div>
@@ -163,6 +196,26 @@ onMounted(load);
 </template>
 
 <style scoped>
+.soldout-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fdf0e6;
+}
+
+.product-card.soldout {
+  opacity: 0.8;
+  outline: 2px dashed var(--clay);
+}
+
+.soldout-toggle {
+  color: #8a4b08;
+}
+
 h1 {
   font-size: 24px;
   margin: 0 0 6px;

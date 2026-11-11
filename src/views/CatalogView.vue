@@ -120,7 +120,8 @@ function handleAdd(product) {
               <h3>{{ product.name }}</h3>
               <p class="product-price">{{ formatPrice(product.price) }} € / {{ product.unit }}</p>
             </div>
-            <div class="product-actions">
+            <p v-if="product.soldOut" class="sold-out-tag">Rupture cette semaine</p>
+            <div v-else class="product-actions">
               <input
                 type="number"
                 min="1"
@@ -142,6 +143,17 @@ function handleAdd(product) {
 </template>
 
 <style scoped>
+.sold-out-tag {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #f1ece2;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+}
+
 .catalog {
   padding: 56px 0 80px;
 }

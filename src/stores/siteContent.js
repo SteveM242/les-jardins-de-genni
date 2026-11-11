@@ -12,6 +12,8 @@ const state = reactive({
   about: { text: "" },
   checkout: { pickupInfo: "", deliveryInfo: "" },
   legal: { companyName: "", legalForm: "", siret: "", address: "", publisher: "", phone: "", mediator: "" },
+  // Session de vente : { mode, open, pickupDate, opensInDays, closedMessage } (null tant qu'inconnue : on n'affiche rien de faux).
+  sales: null,
   loaded: false,
   loading: false
 });
@@ -37,6 +39,7 @@ async function load({ force = false } = {}) {
     Object.assign(state.about, data.about || {});
     Object.assign(state.checkout, data.checkout || {});
     Object.assign(state.legal, data.legal || {});
+    state.sales = data.salesStatus || null;
     applyContact(state.contact);
     state.loaded = true;
   }
@@ -44,6 +47,11 @@ async function load({ force = false } = {}) {
   state.loading = false;
 }
 
+// Le serveur renvoie le statut de la vente avec la relecture du panier et le refus d'une commande hors session.
+function setSales(sales) {
+  if (sales) state.sales = sales;
+}
+
 export function useSiteContent() {
-  return { state, load };
+  return { state, load, setSales };
 }

@@ -9,11 +9,13 @@ import BackLink from "../../components/BackLink.vue";
 import LoadError from "../../components/LoadError.vue";
 import CartLineContents from "../../components/CartLineContents.vue";
 import { formatOrderCode } from "../../utils/orderCode.js";
+import { useCart } from "../../stores/cart.js";
 
 const router = useRouter();
 const auth = useAuth();
 const toast = useToast();
 const orders = ref([]);
+const cart = useCart();
 
 const profile = reactive({
   name: auth.state.customer?.name || "",
@@ -119,6 +121,7 @@ const statusLabels = {
   confirmee: "Confirmée",
   prete: "Prête",
   livree: "Terminée",
+  non_retiree: "Non retirée",
   annulee: "Annulée"
 };
 
@@ -127,6 +130,26 @@ const progressSteps = ["nouvelle", "confirmee", "prete", "livree"];
 
 function progressIndex(status) {
   return progressSteps.indexOf(status);
+}
+
+// « Recommander » : remet les lignes d'une ancienne commande dans le panier, puis envoie au panier.
+// Prix, disponibilité et composition sont revérifiés par le serveur à la relecture (rien n'est commandé ici).
+function reorder(order) {
+  for (const line of order.items || []) {
+    const qty = Math.min(Math.max(Number(line.qty) || 1, 1), 50);
+    if (line.type === "product") {
+      cart.addItem({ type: "product", slug: line.slug, name: line.name, price: line.price, unit: line.unit }, qty);
+    } else if (line.type === "custom") {
+      cart.saveCustomBasket({ name: line.name, contents: line.contents || [], qty });
+    } else if (line.type === "basket") {
+      const chosen = (line.contents || []).filter((entry) => Number.isFinite(entry.qty));
+      // Panier personnalisable : on reprend le choix exact ; sinon c'est un panier classique.
+      if (chosen.length) cart.saveBasketSelection({ basket: { slug: line.slug, name: line.name, price: line.price }, selection: chosen, qty });
+      else cart.addItem({ type: "basket", slug: line.slug, name: line.name, price: line.price }, qty);
+    }
+  }
+  toast.success("Commande remise dans votre panier : vérifiez les prix et les disponibilités avant de confirmer.");
+  router.push("/commande");
 }
 
 function formatDate(iso) {
@@ -252,6 +275,7 @@ function formatDate(iso) {
           <p class="order-meta">
             {{ order.fulfillment === "livraison" ? "Livraison" : "Retrait" }} · Total {{ order.total }} €
           </p>
+          <button type="button" class="btn ghost reorder-btn" @click="reorder(order)">↻ Recommander</button>
         </div>
       </div>
     </div>
@@ -476,6 +500,15 @@ h2 {
 .status-livree {
   background: #c6e8d0;
   color: var(--green-dark);
+}
+
+.status-non_retiree {
+  background: #fdebd0;
+  color: #8a4b08;
+}
+
+.reorder-btn {
+  margin-top: 8px;
 }
 
 .status-annulee {

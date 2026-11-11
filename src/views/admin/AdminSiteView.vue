@@ -13,6 +13,24 @@ const content = useSiteContent();
 // Sections de texte : un formulaire par section, enregistré indépendamment.
 const SECTIONS = [
   {
+    name: "sales",
+    title: "Vente de la semaine",
+    hint: "En mode automatique, la vente ouvre le samedi et ferme le lundi soir (heure de la Martinique), avec retrait le mercredi. Hors session, les commandes sont refusées. Vous pouvez forcer l'ouverture ou la fermeture, par exemple pour rouvrir exceptionnellement ou faire une pause.",
+    fields: [
+      {
+        key: "mode",
+        label: "Mode",
+        type: "select",
+        options: [
+          { value: "auto", label: "Automatique (samedi → lundi soir)" },
+          { value: "open", label: "Forcer : vente ouverte" },
+          { value: "closed", label: "Forcer : vente fermée" }
+        ]
+      },
+      { key: "closedMessage", label: "Message quand la vente est fermée (facultatif)", type: "text", placeholder: "ex: Pause cette semaine, retour samedi prochain !", maxlength: 200 }
+    ]
+  },
+  {
     name: "announcement",
     title: "Annonce du moment",
     hint: "Un bandeau jaune tout en haut du site, par exemple « Commandes ouvertes jusqu'à jeudi 18h, retrait vendredi ». Les visiteurs peuvent le fermer.",
@@ -211,6 +229,12 @@ onMounted(load);
             <label v-if="field.type === 'checkbox'" class="check-field">
               <input v-model="forms[section.name][field.key]" type="checkbox" />
               {{ field.label }}
+            </label>
+            <label v-else-if="field.type === 'select'">
+              {{ field.label }}
+              <select v-model="forms[section.name][field.key]">
+                <option v-for="option in field.options" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
             </label>
             <label v-else-if="field.type === 'textarea'" class="wide">
               {{ field.label }}

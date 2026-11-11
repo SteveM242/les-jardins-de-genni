@@ -1,13 +1,16 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { site } from "../data/site.js";
+import { useSiteContent } from "../stores/siteContent.js";
 
 defineProps({
   compact: { type: Boolean, default: false }
 });
 
-// La session est ouverte du samedi au lundi (soir) ; le reste de la semaine, elle est fermée.
-const saleOpen = computed(() => [6, 0, 1].includes(new Date().getDay()));
+// Statut donné par le serveur (heure de la Martinique, bascule manuelle possible) ; à défaut, le rythme habituel.
+const content = useSiteContent();
+const saleOpen = computed(() => (content.state.sales ? content.state.sales.open : [6, 0, 1].includes(new Date().getDay())));
+const manuallyClosed = computed(() => content.state.sales?.mode === "closed");
 
 const root = ref(null);
 const visible = ref(false);
@@ -47,6 +50,7 @@ onBeforeUnmount(() => observer?.disconnect());
       <p class="rhythm-status" :class="saleOpen ? 'open' : 'closed'" role="status">
         <span class="dot" aria-hidden="true"></span>
         <template v-if="saleOpen">Vente ouverte : commandez jusqu'à lundi soir</template>
+        <template v-else-if="manuallyClosed">Vente fermée pour le moment</template>
         <template v-else>Vente fermée : prochaine ouverture samedi</template>
       </p>
     </div>

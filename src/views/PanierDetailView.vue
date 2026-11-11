@@ -29,7 +29,8 @@ const editingKey = computed(() => (typeof route.query.ligne === "string" ? route
 
 function resetChoice() {
   for (const key of Object.keys(choice)) delete choice[key];
-  for (const entry of composition.value?.entries || []) choice[entry.name] = entry.qty;
+  // Un article en rupture cette semaine démarre à 0 : le client choisit un remplacement.
+  for (const entry of composition.value?.entries || []) choice[entry.name] = entry.soldOut ? 0 : entry.qty;
 }
 
 // Initialise (ou réinitialise) le choix quand le panier est chargé ou qu'on arrive depuis le panier d'achat.
@@ -42,6 +43,7 @@ watch(
     if (line?.selection && line.slug === panier.value.slug) {
       for (const entry of composition.value.entries) choice[entry.name] = 0;
       for (const picked of line.selection) if (picked.name in choice) choice[picked.name] = picked.qty;
+      for (const entry of composition.value.entries) if (entry.soldOut) choice[entry.name] = 0;
       qty.value = line.qty;
     }
   },
@@ -52,13 +54,13 @@ const baseEntries = computed(() => (composition.value?.entries || []).filter((en
 const replacementEntries = computed(() => (composition.value?.entries || []).filter((entry) => entry.kind === "replacement"));
 const total = computed(() => Object.values(choice).reduce((sum, n) => sum + n, 0));
 const remaining = computed(() => (composition.value ? composition.value.maxItems - total.value : 0));
-const isDefault = computed(() => (composition.value?.entries || []).every((entry) => choice[entry.name] === entry.qty));
+const isDefault = computed(() => (composition.value?.entries || []).every((entry) => choice[entry.name] === (entry.soldOut ? 0 : entry.qty)));
 const selection = computed(() =>
   (composition.value?.entries || []).filter((entry) => choice[entry.name] > 0).map((entry) => ({ name: entry.name, qty: choice[entry.name] }))
 );
 
 function canAdd(entry) {
-  return choice[entry.name] < entry.max && remaining.value > 0;
+  return !entry.soldOut && choice[entry.name] < entry.max && remaining.value > 0;
 }
 
 function bump(entry, delta) {
@@ -70,7 +72,7 @@ function bump(entry, delta) {
 // Remplacement en un geste : la quantité de l'article passe sur un autre, dans la limite de son maximum.
 function swapTargets(entry) {
   if (!composition.value || !(choice[entry.name] > 0)) return [];
-  return composition.value.entries.filter((other) => other.name !== entry.name && choice[other.name] < other.max);
+  return composition.value.entries.filter((other) => other.name !== entry.name && !other.soldOut && choice[other.name] < other.max);
 }
 
 function swapWith(entry, event) {
@@ -88,7 +90,7 @@ function swapWith(entry, event) {
 function setFromInput(entry, event) {
   const wanted = Math.floor(Number(event.target.value));
   const others = total.value - choice[entry.name];
-  const allowed = Math.min(entry.max, composition.value.maxItems - others);
+  const allowed = entry.soldOut ? 0 : Math.min(entry.max, composition.value.maxItems - others);
   const next = Number.isFinite(wanted) ? Math.min(Math.max(wanted, 0), allowed) : choice[entry.name];
   choice[entry.name] = next;
   event.target.value = next;
@@ -171,10 +173,11 @@ function handleAdd(goToCart) {
 
             <h3 class="composer-group">Dans votre panier</h3>
             <ul class="composer-list">
-              <li v-for="entry in baseEntries" :key="entry.name" :class="{ off: choice[entry.name] === 0 }">
+              <li v-for="entry in baseEntries" :key="entry.name" :class="{ off: choice[entry.name] === 0 || entry.soldOut }">
                 <div class="composer-name">
                   <strong>{{ entry.name }}</strong>
-                  <small v-if="entry.note">{{ entry.note }}</small>
+                  <small v-if="entry.soldOut" class="sold-out-note">Rupture cette semaine : choisissez un remplacement</small>
+                  <small v-else-if="entry.note">{{ entry.note }}</small>
                 </div>
                 <select v-if="swapTargets(entry).length" class="swap-select" :aria-label="`Remplacer ${entry.name} par`" @change="swapWith(entry, $event)">
                   <option value="">Remplacer par…</option>
@@ -195,7 +198,8 @@ function handleAdd(goToCart) {
                 <li v-for="entry in replacementEntries" :key="entry.name" :class="{ on: choice[entry.name] > 0 }">
                   <div class="composer-name">
                     <strong>{{ entry.name }}</strong>
-                    <small v-if="entry.note">{{ entry.note }}</small>
+                    <small v-if="entry.soldOut" class="sold-out-note">Rupture cette semaine : choisissez un remplacement</small>
+                  <small v-else-if="entry.note">{{ entry.note }}</small>
                   </div>
                   <div class="qty-stepper">
                     <button type="button" :disabled="choice[entry.name] <= 0" :aria-label="`Retirer un ${entry.name}`" @click="bump(entry, -1)">−</button>
@@ -273,6 +277,11 @@ function handleAdd(goToCart) {
 </template>
 
 <style scoped>
+.sold-out-note {
+  color: var(--hibiscus);
+  font-weight: 700;
+}
+
 .swap-select {
   font: inherit;
   font-size: 12px;

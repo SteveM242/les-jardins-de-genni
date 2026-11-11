@@ -172,7 +172,8 @@ function startOver() {
                 <strong>{{ product.name }}</strong>
                 <span class="muted">{{ formatPrice(product.price) }} € / {{ product.unit }}</span>
               </div>
-              <div class="qty-stepper">
+              <span v-if="product.soldOut" class="muted"><strong>Rupture cette semaine</strong></span>
+              <div v-else class="qty-stepper">
                 <button type="button" :aria-label="`Retirer un ${product.name}`" :disabled="qtyOf(product.slug) === 0" @click="setQty(product.slug, qtyOf(product.slug) - 1)">−</button>
                 <input
                   type="number"

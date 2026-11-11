@@ -24,6 +24,7 @@ async function logoutEverywhere() {
         <strong>L'Héritage des Mornes — Espace pro</strong>
         <nav>
           <RouterLink to="/admin">Commandes</RouterLink>
+          <RouterLink to="/admin/preparation">Préparation</RouterLink>
           <RouterLink to="/admin/articles">Articles</RouterLink>
           <RouterLink to="/admin/paniers">Paniers</RouterLink>
           <RouterLink to="/admin/promos">Codes promo</RouterLink>

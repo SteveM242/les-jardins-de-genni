@@ -4,6 +4,7 @@ import AdminNav from "../../components/admin/AdminNav.vue";
 import ImageUploader from "../../components/admin/ImageUploader.vue";
 import LoadError from "../../components/LoadError.vue";
 import { useAdminResource } from "../../composables/useAdminResource.js";
+import { api } from "../../api.js";
 import { useToast } from "../../stores/toast.js";
 
 const { items: baskets, loading, loadError, load, create, update, remove, applyUploaded } = useAdminResource({
@@ -151,6 +152,21 @@ async function removeBasket(basket) {
   if (ok) toast.success(`« ${basket.name} » supprimé.`);
 }
 
+// Prépare la semaine suivante : copie du panier (contenu, composition, photo), hors vente, à ajuster puis à mettre en vente.
+async function duplicateBasket(basket) {
+  const res = await api(`/api/admin/baskets/${basket.id}/duplicate`, { method: "POST" });
+  if (!res.ok) {
+    toast.error(res.error);
+    return;
+  }
+  const copy = res.data.basket;
+  const index = baskets.value.findIndex((entry) => entry.id === basket.id);
+  baskets.value.splice(index + 1, 0, copy);
+  remember(copy);
+  if (copy.composition) startComposition(copy);
+  toast.success(`« ${copy.name} » créé, hors vente : ajustez-le puis mettez-le en vente.`);
+}
+
 async function addItem(basket) {
   const text = (newItemDraft[basket.id] || "").trim();
   if (!text) return;
@@ -263,7 +279,8 @@ async function saveComposition(basket) {
       qty: Number(entry.qty),
       max: Number(entry.max),
       kind: entry.kind,
-      note: (entry.note || "").trim()
+      note: (entry.note || "").trim(),
+      soldOut: Boolean(entry.soldOut)
     }))
   };
   const ok = await update(basket, { composition: payload });
@@ -416,7 +433,7 @@ onMounted(async () => {
           </label>
 
           <div class="entry-head" aria-hidden="true">
-            <span>Article</span><span>Type</span><span>Par défaut</span><span>Maximum</span><span>Précision (provenance, quantité…)</span><span></span>
+            <span>Article</span><span>Type</span><span>Par défaut</span><span>Maximum</span><span>Précision (provenance, quantité…)</span><span>Rupture</span><span></span>
           </div>
           <div v-for="(entry, index) in compDrafts[basket.id].entries" :key="index" class="entry-row" :class="{ replacement: entry.kind === 'replacement' }">
             <input v-model="entry.name" maxlength="80" placeholder="Article" aria-label="Nom de l'article" />
@@ -427,6 +444,7 @@ onMounted(async () => {
             <input v-model.number="entry.qty" type="number" min="0" max="20" aria-label="Quantité par défaut" />
             <input v-model.number="entry.max" type="number" min="1" max="20" aria-label="Quantité maximale" />
             <input v-model="entry.note" maxlength="120" placeholder="ex: La Roquette, 1 botte" aria-label="Précision" />
+            <label class="entry-soldout"><input v-model="entry.soldOut" type="checkbox" /> Rupture</label>
             <button type="button" class="entry-remove" aria-label="Retirer l'article" @click="removeEntry(basket, index)">×</button>
           </div>
 
@@ -454,6 +472,7 @@ onMounted(async () => {
         </section>
 
         <div class="basket-footer">
+          <button type="button" class="btn ghost" @click="duplicateBasket(basket)">⧉ Dupliquer (hors vente)</button>
           <button type="button" class="link-btn" @click="removeBasket(basket)">Supprimer ce panier</button>
         </div>
       </div>
@@ -523,7 +542,7 @@ onMounted(async () => {
 .entry-head,
 .entry-row {
   display: grid;
-  grid-template-columns: 1.4fr 1.1fr 0.6fr 0.6fr 1.6fr auto;
+  grid-template-columns: 1.4fr 1.1fr 0.6fr 0.6fr 1.6fr auto auto;
   gap: 6px;
   align-items: center;
 }
@@ -552,6 +571,14 @@ onMounted(async () => {
   border-radius: 8px;
   outline: 1px dashed var(--clay);
   outline-offset: 2px;
+}
+
+.entry-soldout {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #8a4b08;
 }
 
 .entry-remove {
@@ -779,6 +806,10 @@ h1 {
 }
 
 .basket-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   padding-top: 8px;
   border-top: 1px solid var(--line);
   text-align: right;
