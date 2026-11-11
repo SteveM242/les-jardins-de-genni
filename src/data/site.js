@@ -1,13 +1,13 @@
 import { reactive } from "vue";
 
-// Informations du site. Les coordonnées (WhatsApp, email, commune, horaires) sont saisies par Genni dans
+// Informations du site. Les coordonnées (WhatsApp, email, commune, horaires) sont saisies par La Fée des Mornes dans
 // l'espace pro (« Contenu du site ») et injectées ici au chargement (voir stores/siteContent.js) :
 // tant qu'elles ne sont pas renseignées, aucun faux numéro ni faux email n'est affiché.
 export const site = reactive({
-  brandName: "Les Jardins de Genni",
+  brandName: "L'Héritage des Mornes",
   tagline: "Fruits et légumes péyi, cueillis avec soin.",
   intro:
-    "Genni cultive ses fruits et légumes en Martinique, sans précipitation, au rythme des saisons. Chaque panier est préparé à la main, avec ce qui est bon à cueillir cette semaine-là.",
+    "La Fée des Mornes cultive ses fruits et légumes en Martinique, sans précipitation, au rythme des saisons. Chaque panier est préparé à la main, avec ce qui est bon à cueillir cette semaine-là.",
 
   // Renseignés depuis les réglages (vides = non configurés)
   whatsappNumber: "",
@@ -30,7 +30,7 @@ export const site = reactive({
       },
       {
         title: "3. Récupérez ou faites-vous livrer",
-        text: "Genni vous confirme le jour et le lieu de retrait ou de livraison."
+        text: "La Fée des Mornes vous confirme le jour et le lieu de retrait ou de livraison."
       }
     ];
   }
@@ -41,15 +41,15 @@ function whatsappLink(message) {
 }
 
 export function whatsappOrderLink(panierName) {
-  return whatsappLink(`Bonjour Genni, je souhaite commander le ${panierName}. Est-il disponible cette semaine ?`);
+  return whatsappLink(`Bonjour La Fée des Mornes, je souhaite commander le ${panierName}. Est-il disponible cette semaine ?`);
 }
 
 export function whatsappGeneralLink() {
-  return whatsappLink("Bonjour Genni, j'ai une question sur vos paniers.");
+  return whatsappLink("Bonjour La Fée des Mornes, j'ai une question sur vos paniers.");
 }
 
 export function whatsappOrderConfirmLink(orderNumber, customerName) {
-  return whatsappLink(`Bonjour Genni, c'est ${customerName || "un·e client·e"}. Je viens de passer la commande ${orderNumber} sur le site.`);
+  return whatsappLink(`Bonjour La Fée des Mornes, c'est ${customerName || "un·e client·e"}. Je viens de passer la commande ${orderNumber} sur le site.`);
 }
 
 // Lien WhatsApp vers un·e client·e à partir du téléphone saisi à la commande.
@@ -63,5 +63,5 @@ export function customerWhatsappLink(phone, message) {
 
 export function whatsappCartLink(items) {
   const lines = items.map((item) => `- ${item.qty} x ${item.name}`);
-  return whatsappLink(`Bonjour Genni, je souhaite commander :\n${lines.join("\n")}\n\nEst-ce disponible cette semaine ?`);
+  return whatsappLink(`Bonjour La Fée des Mornes, je souhaite commander :\n${lines.join("\n")}\n\nEst-ce disponible cette semaine ?`);
 }

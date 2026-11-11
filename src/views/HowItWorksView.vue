@@ -7,10 +7,10 @@ import { site } from "../data/site.js";
   <div class="how-it-works">
     <div class="container">
       <p class="eyebrow">Comment ça marche</p>
-      <h1>Commander chez Genni, étape par étape</h1>
+      <h1>Commander chez la Fée des Mornes, étape par étape</h1>
       <p class="intro">
         Deux façons de commander : en ligne via le formulaire, ou directement sur WhatsApp si vous
-        préférez échanger avec Genni. Dans les deux cas, le principe reste le même.
+        préférez échanger avec la Fée des Mornes. Dans les deux cas, le principe reste le même.
       </p>
 
       <ol class="steps-list">
@@ -28,7 +28,7 @@ import { site } from "../data/site.js";
           <h3>Commande en ligne</h3>
           <p>
             Ajoutez un ou plusieurs paniers depuis la page d'un panier ou directement depuis la liste,
-            puis validez votre commande avec vos coordonnées. Genni reçoit votre demande et vous
+            puis validez votre commande avec vos coordonnées. La Fée des Mornes reçoit votre demande et vous
             recontacte pour confirmer la disponibilité.
           </p>
         </div>
@@ -36,20 +36,20 @@ import { site } from "../data/site.js";
           <h3>Commande WhatsApp</h3>
           <p>
             Sur chaque panier, un lien ouvre WhatsApp avec un message déjà rédigé. Il ne reste qu'à
-            l'envoyer à Genni pour démarrer la conversation.
+            l'envoyer à La Fée des Mornes pour démarrer la conversation.
           </p>
         </div>
         <div class="detail-card">
           <h3>Retrait ou livraison</h3>
           <p>
-            Précisez votre préférence lors de la commande. Genni confirme le jour, l'heure et le lieu
+            Précisez votre préférence lors de la commande. La Fée des Mornes confirme le jour, l'heure et le lieu
             selon les tournées de la semaine.
           </p>
         </div>
         <div class="detail-card">
           <h3>Paiement</h3>
           <p>
-            Le règlement se fait directement avec Genni au moment du retrait ou de la livraison
+            Le règlement se fait directement avec la Fée des Mornes au moment du retrait ou de la livraison
             (espèces ou virement selon accord).
           </p>
         </div>

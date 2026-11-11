@@ -47,7 +47,7 @@ test("renderHtml remplace titre et description et injecte Open Graph avec URL ab
   const html = renderHtml(template, metaFor("/produits"), context);
   assert.ok(!html.includes("Défaut"));
   assert.ok(!html.includes("<!--app-meta-->"));
-  assert.match(html, /<title>Les articles à la carte — Les Jardins de Genni<\/title>/);
+  assert.match(html, /<title>Les articles à la carte — L&#39;Héritage des Mornes<\/title>/);
   assert.match(html, /property="og:image" content="https:\/\/exemple\.fr\/images\/hero-jardin\.webp"/);
   assert.match(html, /rel="canonical" href="https:\/\/exemple\.fr\/produits"/);
 });
@@ -85,7 +85,7 @@ test("la page d'un panier contient ses balises de partage (si dist/ est construi
   try {
     const res = await app.request("GET", "/panier/panier-decouverte");
     assert.equal(res.status, 200);
-    assert.match(res.text, /og:title" content="Panier &lt;Découverte&gt; — Les Jardins de Genni"/);
+    assert.match(res.text, /og:title" content="Panier &lt;Découverte&gt; — L&#39;Héritage des Mornes"/);
     assert.match(res.text, /og:description" content="Un &quot;petit&quot; format"/);
     const unknown = await app.request("GET", "/panier/inconnu");
     assert.match(unknown.text, /noindex/);

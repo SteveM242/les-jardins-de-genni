@@ -1,4 +1,4 @@
--- Contenu éditable par Genni depuis l'espace pro : liens vers les réseaux sociaux et galerie photos de l'accueil.
+-- Contenu éditable par La Fée des Mornes depuis l'espace pro : liens vers les réseaux sociaux et galerie photos de l'accueil.
 CREATE TABLE IF NOT EXISTS site_settings (
   key TEXT PRIMARY KEY,
   value JSONB NOT NULL DEFAULT '{}',

@@ -18,7 +18,7 @@ import SocialLinks from "./SocialLinks.vue";
         <RouterLink to="/produits">À la carte</RouterLink>
         <RouterLink to="/comment-ca-marche">Comment ça marche</RouterLink>
         <RouterLink to="/a-propos">À propos</RouterLink>
-        <RouterLink to="/reseaux">Suivre Genni</RouterLink>
+        <RouterLink to="/reseaux">Suivre la Fée des Mornes</RouterLink>
         <RouterLink to="/commande">Mon panier</RouterLink>
       </div>
 
@@ -40,7 +40,7 @@ import SocialLinks from "./SocialLinks.vue";
 
     <p class="footer-copyright">
       © {{ new Date().getFullYear() }} {{ site.brandName }} ·
-      <RouterLink to="/admin/connexion" class="pro-link">Espace Genni</RouterLink>
+      <RouterLink to="/admin/connexion" class="pro-link">Espace pro</RouterLink>
     </p>
   </footer>
 </template>

@@ -33,8 +33,8 @@ async function submit() {
       <h1>Connexion</h1>
       <p class="hint">Pour suivre vos commandes en tant que client.</p>
       <p class="pro-callout">
-        🧑‍🌾 Vous êtes Genni et voulez gérer vos commandes/articles ?
-        <RouterLink to="/admin/connexion">Allez plutôt sur l'Espace Genni →</RouterLink>
+        🧑‍🌾 Vous êtes La Fée des Mornes et voulez gérer vos commandes/articles ?
+        <RouterLink to="/admin/connexion">Allez plutôt sur l'Espace pro →</RouterLink>
       </p>
 
       <form class="auth-form" @submit.prevent="submit">

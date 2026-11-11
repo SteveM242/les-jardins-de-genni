@@ -39,7 +39,7 @@ function formatEuros(value) {
 }
 
 // ---------- Alerte de nouvelle commande (son, notification, compteur dans l'onglet) ----------
-const SOUND_KEY = "genni-order-sound";
+const SOUND_KEY = "heritage-order-sound";
 
 function readSound() {
   try {
@@ -91,7 +91,7 @@ function handleNewCount(count) {
     if (soundOn.value) beep();
   }
   knownNew = count;
-  document.title = count > 0 ? `(${count}) Commandes à traiter — Espace pro` : "Espace pro — Les Jardins de Genni";
+  document.title = count > 0 ? `(${count}) Commandes à traiter — Espace pro` : "Espace pro — L'Héritage des Mornes";
 }
 
 const orders = ref([]);
@@ -331,7 +331,7 @@ onBeforeUnmount(() => {
 
         <div class="order-footer">
           <a
-            :href="customerWhatsappLink(order.phone, `Bonjour ${order.name}, c'est Genni (Les Jardins de Genni) à propos de votre commande ${order.order_number}.`)"
+            :href="customerWhatsappLink(order.phone, `Bonjour ${order.name}, c'est La Fée des Mornes (L'Héritage des Mornes) à propos de votre commande ${order.order_number}.`)"
             target="_blank"
             rel="noreferrer"
             class="btn ghost whatsapp-link"

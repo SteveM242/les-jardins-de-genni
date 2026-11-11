@@ -5,7 +5,7 @@ import { useSiteContent } from "../stores/siteContent.js";
 const content = useSiteContent();
 
 // Un visiteur qui ferme l'annonce ne la revoit pas tant qu'elle ne change pas (dans cet onglet).
-const STORAGE_KEY = "genni-announcement-dismissed";
+const STORAGE_KEY = "heritage-announcement-dismissed";
 function readDismissed() {
   try {
     return sessionStorage.getItem(STORAGE_KEY) || "";

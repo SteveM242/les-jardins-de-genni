@@ -1,6 +1,6 @@
 import pages from "./data/pages.json";
 
-const SITE_NAME = "Les Jardins de Genni";
+const SITE_NAME = "L'Héritage des Mornes";
 
 export function setPageTitle(title) {
   document.title = title ? `${title} — ${SITE_NAME}` : SITE_NAME;

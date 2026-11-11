@@ -6,7 +6,7 @@ import { useCart } from "../stores/cart.js";
 import { useToast } from "../stores/toast.js";
 import LoadError from "../components/LoadError.vue";
 
-const DRAFT_KEY = "genni-compose-draft";
+const DRAFT_KEY = "heritage-compose-draft";
 const MAX_PER_ITEM = 50;
 
 const route = useRoute();
@@ -132,7 +132,7 @@ function startOver() {
       <p class="eyebrow">Sur mesure</p>
       <h1>{{ editing ? "Modifier mon panier" : "Composez votre panier" }}</h1>
       <p class="intro">
-        Choisissez vos fruits et légumes, donnez un nom à votre panier, puis validez-le. Genni recevra exactement la liste
+        Choisissez vos fruits et légumes, donnez un nom à votre panier, puis validez-le. La Fée des Mornes recevra exactement la liste
         de ce que vous avez choisi.
       </p>
 

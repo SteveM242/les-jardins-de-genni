@@ -44,7 +44,7 @@ const form = reactive({
 
 const errors = reactive({ name: "", phone: "", email: "", address: "", desiredDate: "" });
 
-// Infos de retrait / livraison saisies par Genni, rappelées sous le choix du mode.
+// Infos de retrait / livraison saisies par La Fée des Mornes, rappelées sous le choix du mode.
 const modeInfo = computed(() =>
   form.fulfillment === "livraison" ? siteContent.state.checkout.deliveryInfo : siteContent.state.checkout.pickupInfo
 );
@@ -267,7 +267,7 @@ async function submitOrder() {
         <h2>Commande envoyée, merci {{ lastOrder?.customer?.name }} !</h2>
         <p>
           Numéro de commande : <strong>{{ lastOrder?.orderId }}</strong> — total {{ formatPrice(lastOrder?.total || 0) }} €.
-          Notez-le : il vous servira si vous nous contactez. Genni va vous recontacter pour confirmer la disponibilité et le
+          Notez-le : il vous servira si vous nous contactez. La Fée des Mornes va vous recontacter pour confirmer la disponibilité et le
           {{ lastOrder?.fulfillment === "livraison" ? "créneau de livraison" : "retrait" }}.
         </p>
         <div class="success-actions">
@@ -278,7 +278,7 @@ async function submitOrder() {
             rel="noreferrer"
             class="btn whatsapp"
           >
-            Prévenir Genni sur WhatsApp
+            Prévenir la Fée des Mornes sur WhatsApp
           </a>
           <RouterLink v-if="auth.state.customer" to="/compte" class="btn ghost">Suivre mes commandes</RouterLink>
           <RouterLink to="/" class="btn ghost">Retour à l'accueil</RouterLink>

@@ -4,7 +4,7 @@ import { computed } from "vue";
 import { site } from "../data/site.js";
 import { useSiteContent } from "../stores/siteContent.js";
 
-// Texte rédigé par Genni (paragraphes séparés par une ligne vide) ; sinon le texte par défaut ci-dessous.
+// Texte rédigé par La Fée des Mornes (paragraphes séparés par une ligne vide) ; sinon le texte par défaut ci-dessous.
 const content = useSiteContent();
 const customParagraphs = computed(() =>
   content.state.about.text
@@ -23,7 +23,7 @@ const customParagraphs = computed(() =>
 
       <div class="about-body">
         <p class="eyebrow">À propos</p>
-        <h1>Genni, {{ site.location }}</h1>
+        <h1>La Fée des Mornes, {{ site.location }}</h1>
         <p class="lead">{{ site.intro }}</p>
 
         <template v-if="customParagraphs.length">
@@ -37,7 +37,7 @@ const customParagraphs = computed(() =>
           </p>
 
           <p>
-            Les produits sont cultivés sur l'exploitation de Genni, récoltés le jour même de la
+            Les produits sont cultivés sur l'exploitation de la Fée des Mornes, récoltés le jour même de la
             préparation des paniers, pour une fraîcheur maximale entre le jardin et votre table.
           </p>
         </template>

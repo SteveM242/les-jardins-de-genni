@@ -6,7 +6,7 @@ const port = process.env.PORT || 4173;
 migrate()
   .then(() => {
     createApp().listen(port, () => {
-      console.log(`Les Jardins de Genni — server listening on port ${port}`);
+      console.log(`L'Héritage des Mornes — server listening on port ${port}`);
     });
   })
   .catch((err) => {

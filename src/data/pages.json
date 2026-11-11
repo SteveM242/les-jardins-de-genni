@@ -1,7 +1,7 @@
 {
   "/": {
     "title": "Fruits & légumes frais de Martinique",
-    "description": "Les Jardins de Genni — fruits et légumes frais cultivés avec soin en Martinique. Paniers péyi à commander en ligne."
+    "description": "L'Héritage des Mornes — fruits et légumes frais cultivés avec soin en Martinique. Paniers péyi à commander en ligne."
   },
   "/produits": {
     "title": "Les articles à la carte",
@@ -9,19 +9,19 @@
   },
   "/composer": {
     "title": "Composez votre panier sur mesure",
-    "description": "Choisissez vos fruits et légumes de Martinique, nommez votre panier et validez : Genni reçoit la liste exacte."
+    "description": "Choisissez vos fruits et légumes de Martinique, nommez votre panier et validez : La Fée des Mornes reçoit la liste exacte."
   },
   "/comment-ca-marche": {
     "title": "Comment ça marche",
     "description": "Choisissez ou composez votre panier, commandez en ligne, puis récupérez-le ou faites-vous livrer."
   },
   "/a-propos": {
-    "title": "À propos de Genni",
-    "description": "Genni cultive ses fruits et légumes en Martinique, au rythme des saisons. Découvrez son exploitation et sa façon de travailler."
+    "title": "À propos de la Fée des Mornes",
+    "description": "La Fée des Mornes cultive ses fruits et légumes en Martinique, au rythme des saisons. Découvrez son exploitation et sa façon de travailler."
   },
   "/contact": {
     "title": "Contact",
-    "description": "Une question sur les paniers ou une commande ? Contactez Genni."
+    "description": "Une question sur les paniers ou une commande ? Contactez La Fée des Mornes."
   },
   "/commande": {
     "title": "Panier & commande",
@@ -30,12 +30,12 @@
   },
   "/compte": {
     "title": "Mon compte",
-    "description": "Suivez vos commandes Les Jardins de Genni.",
+    "description": "Suivez vos commandes L'Héritage des Mornes.",
     "noindex": true
   },
   "/compte/connexion": {
     "title": "Connexion",
-    "description": "Connectez-vous à votre compte Les Jardins de Genni.",
+    "description": "Connectez-vous à votre compte L'Héritage des Mornes.",
     "noindex": true
   },
   "/compte/inscription": {
@@ -60,7 +60,7 @@
   },
   "/mentions-legales": {
     "title": "Mentions légales",
-    "description": "Éditeur, hébergeur et crédits photographiques du site Les Jardins de Genni."
+    "description": "Éditeur, hébergeur et crédits photographiques du site L'Héritage des Mornes."
   },
   "/confidentialite": {
     "title": "Politique de confidentialité",
@@ -71,7 +71,7 @@
     "description": "Produits, prix, commande, paiement, retrait et livraison, annulation."
   },
   "/reseaux": {
-    "title": "Suivre Genni sur les réseaux",
-    "description": "Retrouvez Genni sur Instagram, TikTok, Snapchat, Facebook et WhatsApp : photos du jardin, récoltes de la semaine, coulisses."
+    "title": "Suivre la Fée des Mornes sur les réseaux",
+    "description": "Retrouvez La Fée des Mornes sur Instagram, TikTok, Snapchat, Facebook et WhatsApp : photos du jardin, récoltes de la semaine, coulisses."
   }
 }

@@ -18,7 +18,7 @@ router.post("/login", rateLimits.login, async (req, res) => {
     if (await passwordMatches(customerRows[0]?.password_hash, password)) {
       return res.status(401).json({
         ok: false,
-        error: "Cet email correspond à un compte client, pas à l'espace Genni. Utilisez la page de connexion client (/compte/connexion)."
+        error: "Cet email correspond à un compte client, pas à l'espace pro. Utilisez la page de connexion client (/compte/connexion)."
       });
     }
     return res.status(401).json({ ok: false, error: "Email ou mot de passe incorrect." });

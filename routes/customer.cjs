@@ -79,13 +79,13 @@ router.post("/auth/login", rateLimits.login, async (req, res) => {
   const customer = rows[0];
 
   if (!(await passwordMatches(customer?.password_hash, password))) {
-    // Indice "espace Genni" uniquement si le mot de passe saisi est bien celui du compte pro :
+    // Indice "espace pro" uniquement si le mot de passe saisi est bien celui du compte pro :
     // sans ça, la réponse révélerait quels emails sont des comptes administrateur.
     const { rows: adminRows } = await query("SELECT password_hash FROM admins WHERE email = $1", [email]);
     if (await passwordMatches(adminRows[0]?.password_hash, password)) {
       return res.status(401).json({
         ok: false,
-        error: "Cet email correspond à un compte Genni (espace pro), pas à un compte client. Utilisez le lien \"Espace Genni\" ci-dessus."
+        error: "Cet email correspond à un compte de l'espace pro, pas à un compte client. Utilisez le lien \"Espace pro\" ci-dessus."
       });
     }
     return res.status(401).json({ ok: false, error: GENERIC_LOGIN_ERROR });

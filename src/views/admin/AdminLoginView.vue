@@ -30,7 +30,7 @@ async function submit() {
     <div class="container narrow">
       <BackLink />
       <p class="eyebrow">Espace pro</p>
-      <h1>Connexion Genni</h1>
+      <h1>Connexion pro</h1>
 
       <form class="auth-form" @submit.prevent="submit">
         <label>

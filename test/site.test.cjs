@@ -102,7 +102,7 @@ test("photo de galerie servie avec un cache long ; inconnue -> 404", async () =>
 });
 
 test("réseaux sociaux admin : session requise, liens contrôlés, enregistrement", async () => {
-  const body = { socials: { instagram: "https://www.instagram.com/genni", tiktok: "https://www.tiktok.com/@genni" } };
+  const body = { socials: { instagram: "https://www.instagram.com/genni", tiktok: "https://www.tiktok.com/@heritagedesmornes" } };
   assert.equal((await app.request("PUT", "/api/admin/settings/socials", { body })).status, 401);
 
   const bad = await app.request("PUT", "/api/admin/settings/socials", {
@@ -117,7 +117,7 @@ test("réseaux sociaux admin : session requise, liens contrôlés, enregistremen
   assert.equal(ok.status, 200);
   const save = calls.find((c) => c.text.includes("INSERT INTO site_settings"));
   assert.equal(save.params[0], "socials");
-  assert.equal(JSON.parse(save.params[1]).tiktok, "https://www.tiktok.com/@genni");
+  assert.equal(JSON.parse(save.params[1]).tiktok, "https://www.tiktok.com/@heritagedesmornes");
 });
 
 test("galerie admin : ajout d'une photo (position suivante), refus d'un faux fichier image", async () => {
@@ -195,14 +195,14 @@ test("GET /api/site : annonce publiée seulement si active, coordonnées et text
     { key: "contact", value: { whatsapp: "596696123456", email: "genni@example.com", location: "Ducos", hours: "" } },
     { key: "about", value: { text: "Notre histoire" } },
     { key: "checkout", value: { pickupInfo: "Retrait à Ducos", deliveryInfo: "" } },
-    { key: "legal", value: { companyName: "Les Jardins de Genni", siret: "12345678900012" } }
+    { key: "legal", value: { companyName: "L'Héritage des Mornes", siret: "12345678900012" } }
   ];
   const res = await app.request("GET", "/api/site");
   assert.deepEqual(res.json.announcement, { text: "Retrait vendredi" });
   assert.equal(res.json.contact.whatsapp, "596696123456");
   assert.equal(res.json.about.text, "Notre histoire");
   assert.equal(res.json.checkout.pickupInfo, "Retrait à Ducos");
-  assert.equal(res.json.legal.companyName, "Les Jardins de Genni");
+  assert.equal(res.json.legal.companyName, "L'Héritage des Mornes");
   assert.equal(res.json.legal.mediator, "", "champ non renseigné -> vide");
 
   storedSettings = [{ key: "announcement", value: { text: "Brouillon", active: false } }];
@@ -242,17 +242,17 @@ test("GET /api/admin/settings/all renvoie toutes les sections complétées", asy
 
 test("sanitizeSocials : un simple pseudo ou une adresse sans https:// suffit", () => {
   const result = sanitizeSocials({
-    instagram: "@genni.martinique",
-    tiktok: "@genni",
+    instagram: "@heritagedesmornes.martinique",
+    tiktok: "@heritagedesmornes",
     snapchat: "genni972",
     facebook: "genni.jardins",
-    youtube: "www.youtube.com/@genni"
+    youtube: "www.youtube.com/@heritagedesmornes"
   });
-  assert.equal(result.instagram, "https://www.instagram.com/genni.martinique");
-  assert.equal(result.tiktok, "https://www.tiktok.com/@genni");
+  assert.equal(result.instagram, "https://www.instagram.com/heritagedesmornes.martinique");
+  assert.equal(result.tiktok, "https://www.tiktok.com/@heritagedesmornes");
   assert.equal(result.snapchat, "https://www.snapchat.com/add/genni972");
   assert.equal(result.facebook, "https://www.facebook.com/genni.jardins");
-  assert.equal(result.youtube, "https://www.youtube.com/@genni");
+  assert.equal(result.youtube, "https://www.youtube.com/@heritagedesmornes");
   assert.equal(sanitizeSocials({ instagram: "instagram.com/genni" }).instagram, "https://instagram.com/genni");
 });
 

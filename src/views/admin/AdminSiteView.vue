@@ -27,7 +27,7 @@ const SECTIONS = [
     hint: "Affichées sur la page Contact et en bas du site. Tant que le numéro WhatsApp est vide, aucun bouton WhatsApp n'apparaît ; même chose pour l'email.",
     fields: [
       { key: "whatsapp", label: "Numéro WhatsApp", type: "tel", placeholder: "ex: 0696 12 34 56" },
-      { key: "email", label: "Email de contact", type: "email", placeholder: "ex: contact@lesjardinsdegenni.fr" },
+      { key: "email", label: "Email de contact", type: "email", placeholder: "ex: contact@heritagedesmornes.fr" },
       { key: "location", label: "Commune / zone", type: "text", placeholder: "ex: Ducos, Martinique", maxlength: 120 },
       { key: "hours", label: "Horaires", type: "text", placeholder: "ex: Du lundi au vendredi, 8h–18h", maxlength: 200 }
     ]
@@ -231,10 +231,10 @@ onMounted(load);
       <form id="socials" class="card" @submit.prevent="saveSocials">
         <h2>Mes réseaux sociaux</h2>
         <p class="hint">
-          Écrivez simplement votre pseudo (ex : <strong>@genni</strong>) ou collez l'adresse de votre page. Après l'enregistrement, cliquez sur
+          Écrivez simplement votre pseudo (ex : <strong>@heritagedesmornes</strong>) ou collez l'adresse de votre page. Après l'enregistrement, cliquez sur
           « Tester » pour vérifier que le lien ouvre le bon profil. Un réseau laissé vide n'est pas affiché ; WhatsApp apparaît tout seul dès que
           votre numéro est renseigné plus haut.
-          Vos visiteurs retrouvent tout sur la page <RouterLink to="/reseaux">Suivre Genni</RouterLink>.
+          Vos visiteurs retrouvent tout sur la page <RouterLink to="/reseaux">Suivre la Fée des Mornes</RouterLink>.
         </p>
         <div class="socials-grid">
           <label v-for="network in SOCIAL_NETWORKS" :key="network.key">

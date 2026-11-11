@@ -21,7 +21,7 @@ async function logoutEverywhere() {
   <div class="admin-shell">
     <header class="admin-header">
       <div class="admin-header-inner">
-        <strong>Les Jardins de Genni — Espace pro</strong>
+        <strong>L'Héritage des Mornes — Espace pro</strong>
         <nav>
           <RouterLink to="/admin">Commandes</RouterLink>
           <RouterLink to="/admin/articles">Articles</RouterLink>

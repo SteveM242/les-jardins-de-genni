@@ -1,6 +1,6 @@
 import { reactive, computed, watch } from "vue";
 
-const STORAGE_KEY = "genni-cart";
+const STORAGE_KEY = "heritage-cart";
 
 // Une ligne du panier :
 //   { key, type: "product" | "basket" | "custom", slug, name, price, unit, qty, contents? }
