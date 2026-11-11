@@ -67,7 +67,7 @@ h1 {
   padding: 26px 22px 22px;
   border-radius: 18px;
   background: #fff;
-  box-shadow: 0 1px 2px rgba(19, 80, 43, 0.06), 0 8px 24px rgba(19, 80, 43, 0.08);
+  box-shadow: 0 1px 2px rgba(60, 35, 20, 0.06), 0 8px 24px rgba(60, 35, 20, 0.08);
   color: var(--text);
   text-decoration: none;
   overflow: hidden;
@@ -77,7 +77,7 @@ h1 {
 .card:hover,
 .card:focus-visible {
   transform: translateY(-4px);
-  box-shadow: 0 2px 4px rgba(19, 80, 43, 0.08), 0 16px 36px rgba(19, 80, 43, 0.16);
+  box-shadow: 0 2px 4px rgba(60, 35, 20, 0.08), 0 16px 36px rgba(60, 35, 20, 0.16);
 }
 
 /* Bandeau à la couleur du réseau (Snapchat est jaune : le texte reste sur fond blanc, donc lisible). */
@@ -104,7 +104,7 @@ h1 {
   margin-top: 8px;
   font-weight: 700;
   font-size: 14px;
-  color: var(--green-dark);
+  color: var(--brand-dark);
 }
 
 .empty {

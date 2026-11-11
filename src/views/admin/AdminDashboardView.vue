@@ -545,7 +545,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .pickup {
   background: #fff;
-  border: 2px solid var(--green);
+  border: 2px solid var(--brand);
   border-radius: 16px;
   padding: 18px 20px 20px;
   margin-bottom: 24px;
@@ -590,8 +590,8 @@ onBeforeUnmount(() => {
   margin-top: 16px;
   padding: 16px 18px;
   border-radius: 12px;
-  background: var(--green-soft);
-  border: 1px solid var(--green-tint);
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-tint);
 }
 
 .pickup-result.is-annulee {
@@ -658,9 +658,9 @@ h1 {
 }
 
 .sound-toggle[aria-pressed="true"] {
-  border-color: var(--green);
-  background: var(--green-tint);
-  color: var(--green-dark);
+  border-color: var(--brand);
+  background: var(--brand-tint);
+  color: var(--brand-dark);
 }
 
 .stats {
@@ -691,7 +691,7 @@ h1 {
 .stat strong {
   font-family: "Fraunces", Georgia, serif;
   font-size: 28px;
-  color: var(--green-dark);
+  color: var(--brand-dark);
 }
 
 .stat-sub {
@@ -758,8 +758,8 @@ h1 {
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #e4f2e7;
-  color: var(--green-dark);
+  background: var(--brand-tint);
+  color: var(--brand-dark);
 }
 
 .muted a {
@@ -807,8 +807,8 @@ h1 {
 }
 
 .filter-chip.active {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--brand);
+  border-color: var(--brand);
   color: #fff;
 }
 
@@ -879,14 +879,14 @@ h1 {
 
 .status-badge.status-prete,
 .filter-chip.status-prete:not(.active) {
-  background: #def2d2;
-  color: #2a6410;
+  background: var(--ok-soft);
+  color: var(--ok);
 }
 
 .status-badge.status-livree,
 .filter-chip.status-livree:not(.active) {
-  background: #c6e8d0;
-  color: var(--green-dark);
+  background: var(--ok-soft);
+  color: var(--ok);
 }
 
 .status-badge.status-non_retiree,
@@ -897,8 +897,8 @@ h1 {
 }
 
 .status-badge.paid {
-  background: #c6e8d0;
-  color: var(--green-dark);
+  background: var(--ok-soft);
+  color: var(--ok);
 }
 
 .status-badge.unpaid {
@@ -929,7 +929,7 @@ h1 {
 }
 
 .sales-pill.open {
-  background: var(--green-soft);
+  background: var(--ok-soft);
 }
 
 .sales-pill.closed {
@@ -1018,7 +1018,7 @@ h1 {
 }
 
 .discount-note {
-  color: var(--green-dark);
+  color: var(--brand-dark);
   font-size: 12px;
   font-weight: 600;
   margin-top: 6px !important;
@@ -1026,7 +1026,7 @@ h1 {
 
 .desired {
   font-weight: 700;
-  color: var(--green-dark);
+  color: var(--brand-dark);
 }
 
 .notes {

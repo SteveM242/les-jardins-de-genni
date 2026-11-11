@@ -97,20 +97,20 @@ function handleAdd() {
   background: #fff;
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 1px 2px rgba(19, 80, 43, 0.06), 0 8px 24px rgba(19, 80, 43, 0.08);
+  box-shadow: 0 1px 2px rgba(60, 35, 20, 0.06), 0 8px 24px rgba(60, 35, 20, 0.08);
   transition: transform 220ms ease, box-shadow 220ms ease;
 }
 
 .panier-card:hover,
 .panier-card:focus-within {
   transform: translateY(-4px);
-  box-shadow: 0 2px 4px rgba(19, 80, 43, 0.08), 0 16px 36px rgba(19, 80, 43, 0.16);
+  box-shadow: 0 2px 4px rgba(60, 35, 20, 0.08), 0 16px 36px rgba(60, 35, 20, 0.16);
 }
 
 .media {
   position: relative;
   aspect-ratio: 4 / 3;
-  background: var(--green-tint);
+  background: var(--brand-tint);
   overflow: hidden;
 }
 
@@ -143,7 +143,7 @@ function handleAdd() {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(4px);
-  color: var(--green-dark);
+  color: var(--brand-dark);
   font-size: 12px;
   font-weight: 700;
 }
@@ -206,9 +206,9 @@ h3 {
   max-width: 100%;
   padding: 4px 10px;
   border-radius: 999px;
-  background: var(--green-soft);
-  border: 1px solid var(--green-tint);
-  color: var(--green-dark);
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-tint);
+  color: var(--brand-dark);
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
@@ -247,7 +247,7 @@ h3 {
 .price strong {
   font-family: "Fraunces", Georgia, serif;
   font-size: 24px;
-  color: var(--green-dark);
+  color: var(--brand-dark);
 }
 
 .price span {
@@ -292,7 +292,7 @@ h3 {
   padding: 0 16px;
   border: 0;
   border-radius: 999px;
-  background: var(--green);
+  background: var(--brand);
   color: #fff;
   font: inherit;
   font-size: 14px;
@@ -302,7 +302,7 @@ h3 {
 }
 
 .add-btn:hover {
-  background: var(--green-dark);
+  background: var(--brand-dark);
 }
 
 .add-btn:active {
@@ -310,7 +310,7 @@ h3 {
 }
 
 .add-btn.done {
-  background: var(--green-dark);
+  background: var(--brand-dark);
 }
 
 /* En colonne unique sur mobile, une image 4:3 prendrait presque tout l'écran. */

@@ -1,5 +1,4 @@
 <script setup>
-import BackLink from "./BackLink.vue";
 
 defineProps({
   eyebrow: { type: String, default: "Informations légales" },
@@ -11,7 +10,6 @@ defineProps({
 <template>
   <div class="legal-page">
     <div class="container narrow">
-      <BackLink />
       <p class="eyebrow">{{ eyebrow }}</p>
       <h1>{{ title }}</h1>
       <p class="updated">Dernière mise à jour : {{ updated }}</p>

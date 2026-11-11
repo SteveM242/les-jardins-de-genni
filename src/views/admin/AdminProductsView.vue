@@ -307,7 +307,7 @@ h1 {
 }
 
 .product-card.saved {
-  box-shadow: 0 0 0 2px var(--green);
+  box-shadow: 0 0 0 2px var(--brand);
 }
 
 .product-head {

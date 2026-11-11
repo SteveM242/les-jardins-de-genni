@@ -118,8 +118,8 @@ onBeforeUnmount(() => {
   border-radius: 20px;
   overflow: hidden;
   scroll-snap-align: start;
-  background: var(--green-tint);
-  box-shadow: 0 8px 28px rgba(19, 80, 43, 0.14);
+  background: var(--brand-tint);
+  box-shadow: 0 8px 28px rgba(60, 35, 20, 0.14);
 }
 
 .slide img {
@@ -151,7 +151,7 @@ onBeforeUnmount(() => {
   border: 0;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.92);
-  color: var(--green-dark);
+  color: var(--brand-dark);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -198,7 +198,7 @@ onBeforeUnmount(() => {
 
 .dot.active {
   width: 28px;
-  background: var(--green);
+  background: var(--brand);
 }
 
 .pause {

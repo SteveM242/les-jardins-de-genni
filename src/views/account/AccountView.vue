@@ -5,7 +5,6 @@ import { api } from "../../api.js";
 import { useAuth } from "../../stores/auth.js";
 import { useToast } from "../../stores/toast.js";
 import PasswordField from "../../components/PasswordField.vue";
-import BackLink from "../../components/BackLink.vue";
 import LoadError from "../../components/LoadError.vue";
 import CartLineContents from "../../components/CartLineContents.vue";
 import { formatOrderCode } from "../../utils/orderCode.js";
@@ -245,13 +244,15 @@ function formatDate(iso) {
 <template>
   <div class="account-page">
     <div class="container">
-      <BackLink />
       <div class="account-header">
         <div>
           <p class="eyebrow">Mon compte</p>
           <h1>Bonjour {{ auth.state.customer?.name }}</h1>
         </div>
-        <button type="button" class="btn ghost" @click="logout">Se déconnecter</button>
+        <div class="header-buttons">
+          <RouterLink to="/commande" class="btn ghost">🛒 Mon panier<template v-if="cart.totalItems.value"> ({{ cart.totalItems.value }})</template></RouterLink>
+          <button type="button" class="btn ghost" @click="logout">Se déconnecter</button>
+        </div>
       </div>
 
       <section v-if="welcome" class="welcome" aria-labelledby="welcome-title">
@@ -494,7 +495,7 @@ function formatDate(iso) {
   margin: 0 0 22px;
   padding: 22px 24px;
   border-radius: 16px;
-  background: linear-gradient(135deg, var(--green-dark) 0%, var(--green) 100%);
+  background: linear-gradient(135deg, var(--brand-dark) 0%, var(--brand) 100%);
   color: #fff;
   display: grid;
   gap: 8px;
@@ -546,7 +547,7 @@ function formatDate(iso) {
 }
 
 .sales-card.open {
-  background: var(--green-soft);
+  background: var(--ok-soft);
 }
 
 .sales-card.closed {
@@ -564,7 +565,7 @@ function formatDate(iso) {
   gap: 18px;
   padding: 16px 18px;
   background: #fff;
-  border: 2px solid var(--green);
+  border: 2px solid var(--brand);
   border-radius: 16px;
 }
 
@@ -583,28 +584,45 @@ function formatDate(iso) {
   font-size: 14px;
 }
 
-.tabs {
+.header-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 22px;
-  border-bottom: 1px solid var(--line);
+  gap: 10px;
+}
+
+/* Onglets en « segments » : l'onglet actif est plein, impossible de se tromper d'endroit. */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  padding: 5px;
+  background: var(--cream-deep);
+  border-radius: 14px;
+  overflow-x: auto;
 }
 
 .tab {
+  flex: 1 0 auto;
   border: 0;
   background: transparent;
   font: inherit;
   font-weight: 700;
-  padding: 10px 16px;
+  font-size: 14px;
+  padding: 11px 18px;
+  border-radius: 10px;
   cursor: pointer;
   color: var(--muted);
-  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--text);
 }
 
 .tab.active {
-  color: var(--green-dark);
-  border-bottom-color: var(--green);
+  background: #fff;
+  color: var(--brand-dark);
+  box-shadow: 0 1px 3px rgba(42, 33, 25, 0.15);
 }
 
 .prefs {
@@ -849,8 +867,8 @@ h2 {
 }
 
 .progress li.reached {
-  border-top-color: var(--green);
-  color: var(--green-dark);
+  border-top-color: var(--brand);
+  color: var(--brand-dark);
 }
 
 .status-nouvelle {
@@ -864,13 +882,13 @@ h2 {
 }
 
 .status-prete {
-  background: #def2d2;
-  color: #2a6410;
+  background: var(--ok-soft);
+  color: var(--ok);
 }
 
 .status-livree {
-  background: #c6e8d0;
-  color: var(--green-dark);
+  background: var(--ok-soft);
+  color: var(--ok);
 }
 
 .status-non_retiree {

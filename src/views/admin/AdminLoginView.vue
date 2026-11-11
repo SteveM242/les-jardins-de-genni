@@ -3,7 +3,6 @@ import { reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAdminAuth } from "../../stores/adminAuth.js";
 import PasswordField from "../../components/PasswordField.vue";
-import BackLink from "../../components/BackLink.vue";
 
 const router = useRouter();
 const adminAuth = useAdminAuth();
@@ -28,7 +27,6 @@ async function submit() {
 <template>
   <div class="admin-login">
     <div class="container narrow">
-      <BackLink />
       <p class="eyebrow">Espace pro</p>
       <h1>Connexion pro</h1>
 

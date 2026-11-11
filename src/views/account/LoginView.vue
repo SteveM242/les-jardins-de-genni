@@ -3,7 +3,6 @@ import { reactive, ref } from "vue";
 import { useRouter, RouterLink } from "vue-router";
 import { useAuth } from "../../stores/auth.js";
 import PasswordField from "../../components/PasswordField.vue";
-import BackLink from "../../components/BackLink.vue";
 
 const router = useRouter();
 const auth = useAuth();
@@ -28,7 +27,6 @@ async function submit() {
 <template>
   <div class="auth-page">
     <div class="container narrow">
-      <BackLink />
       <p class="eyebrow">Espace client</p>
       <h1>Connexion</h1>
       <p class="hint">Pour suivre vos commandes en tant que client.</p>
@@ -85,16 +83,16 @@ h1 {
 .pro-callout {
   font-size: 13px;
   font-weight: 600;
-  color: var(--green-dark);
-  background: #e4f2e7;
-  border: 1.5px solid var(--green);
+  color: var(--brand-dark);
+  background: var(--brand-tint);
+  border: 1.5px solid var(--brand);
   border-radius: 10px;
   padding: 12px 14px;
   margin: 0 0 24px;
 }
 
 .pro-callout a {
-  color: var(--green-dark);
+  color: var(--brand-dark);
   text-decoration: underline;
 }
 

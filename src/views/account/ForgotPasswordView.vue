@@ -2,7 +2,6 @@
 import { ref } from "vue";
 import { RouterLink } from "vue-router";
 import { api } from "../../api.js";
-import BackLink from "../../components/BackLink.vue";
 
 const email = ref("");
 const error = ref("");
@@ -22,7 +21,6 @@ async function submit() {
 <template>
   <div class="auth-page">
     <div class="container narrow">
-      <BackLink />
       <p class="eyebrow">Espace client</p>
       <h1>Mot de passe oublié</h1>
 

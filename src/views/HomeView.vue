@@ -148,8 +148,8 @@ const slides = computed(() => (siteContent.state.gallery.length > 0 ? siteConten
 }
 
 .gallery-section {
-  background: var(--green-soft);
-  border-top: 1px solid var(--green-tint);
+  background: var(--brand-soft);
+  border-top: 1px solid var(--brand-tint);
 }
 
 .gallery-section .section-intro {
@@ -233,7 +233,7 @@ const slides = computed(() => (siteContent.state.gallery.length > 0 ? siteConten
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: var(--green);
+  background: var(--brand);
   color: #fff;
   display: flex;
   align-items: center;

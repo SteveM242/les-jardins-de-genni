@@ -37,8 +37,8 @@ async function copy() {
   min-width: 260px;
   max-width: 100%;
   padding: 18px 28px 20px;
-  background: var(--green-soft);
-  border: 2px dashed var(--green);
+  background: var(--brand-soft);
+  border: 2px dashed var(--brand);
   border-radius: 16px;
   text-align: center;
 }
@@ -49,7 +49,7 @@ async function copy() {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--green-dark) !important;
+  color: var(--brand-dark) !important;
 }
 
 .ticket-code {
@@ -59,13 +59,13 @@ async function copy() {
   font-weight: 800;
   letter-spacing: 0.12em;
   line-height: 1.1;
-  color: var(--green-dark) !important;
+  color: var(--brand-dark) !important;
   user-select: all;
 }
 
 .ticket-copy {
   border: 0;
-  background: var(--green);
+  background: var(--brand);
   color: #fff;
   font-weight: 700;
   font-size: 13px;
@@ -75,7 +75,7 @@ async function copy() {
 }
 
 .ticket-copy:hover {
-  background: var(--green-dark);
+  background: var(--brand-dark);
 }
 
 .compact {

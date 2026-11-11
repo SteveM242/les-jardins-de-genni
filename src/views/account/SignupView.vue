@@ -4,7 +4,6 @@ import { useRouter, RouterLink } from "vue-router";
 import { useAuth } from "../../stores/auth.js";
 import { useToast } from "../../stores/toast.js";
 import PasswordField from "../../components/PasswordField.vue";
-import BackLink from "../../components/BackLink.vue";
 
 const router = useRouter();
 const auth = useAuth();
@@ -35,7 +34,6 @@ async function submit() {
 <template>
   <div class="auth-page">
     <div class="container narrow">
-      <BackLink />
       <p class="eyebrow">Espace client</p>
       <h1>Créer un compte</h1>
 

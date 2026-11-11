@@ -137,7 +137,7 @@ h1 {
   margin-bottom: 14px;
   padding: 12px 16px;
   border-radius: 12px;
-  background: var(--green-soft);
+  background: var(--brand-soft);
 }
 
 .summary p {

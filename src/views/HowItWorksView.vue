@@ -116,7 +116,7 @@ h1 {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: var(--green);
+  background: var(--brand);
   color: #fff;
   display: flex;
   align-items: center;

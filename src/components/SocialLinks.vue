@@ -57,8 +57,8 @@ a {
 
 .pills a:hover {
   transform: translateY(-2px);
-  border-color: var(--green);
-  box-shadow: 0 6px 16px rgba(19, 80, 43, 0.12);
+  border-color: var(--brand);
+  box-shadow: 0 6px 16px rgba(60, 35, 20, 0.12);
 }
 
 .footer {

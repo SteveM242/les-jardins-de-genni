@@ -682,7 +682,7 @@ async function submitOrder() {
   margin: 0;
   padding: 10px 14px;
   border-radius: 10px;
-  background: var(--green-soft);
+  background: var(--brand-soft);
   font-size: 14px;
 }
 
@@ -727,12 +727,12 @@ h1 {
 }
 
 .stepper li.current {
-  background: var(--green);
+  background: var(--brand);
   color: #fff;
 }
 
 .stepper li.done {
-  color: var(--green-dark);
+  color: var(--brand-dark);
 }
 
 .step-number {
@@ -898,8 +898,8 @@ h1 {
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #e4f2e7;
-  color: var(--green-dark);
+  background: var(--brand-tint);
+  color: var(--brand-dark);
 }
 
 .edit-link {
@@ -1022,7 +1022,7 @@ h1 {
 .discount-applied {
   margin: 8px 0 0;
   font-size: 13px;
-  color: var(--green-dark);
+  color: var(--brand-dark);
   font-weight: 600;
 }
 
@@ -1035,7 +1035,7 @@ h1 {
 }
 
 .cart-total.discount-line {
-  color: var(--green-dark);
+  color: var(--brand-dark);
 }
 
 .cart-total.cart-total-final {
@@ -1110,9 +1110,9 @@ h1 {
   margin: 0;
   padding: 10px 12px;
   border-radius: 10px;
-  background: var(--green-soft);
-  border: 1px solid var(--green-tint);
-  color: var(--green-dark);
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-tint);
+  color: var(--brand-dark);
   font-size: 13px;
   white-space: pre-line;
 }
@@ -1218,7 +1218,7 @@ h1 {
 .confirm-box {
   display: grid;
   gap: 16px;
-  border-color: var(--green);
+  border-color: var(--brand);
 }
 
 .confirm-check {

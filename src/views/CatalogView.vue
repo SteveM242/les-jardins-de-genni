@@ -206,8 +206,8 @@ h1 {
 }
 
 .chip.active {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--brand);
+  border-color: var(--brand);
   color: #fff;
 }
 
@@ -252,7 +252,7 @@ h1 {
 
 .product-media {
   height: 100px;
-  background: linear-gradient(135deg, var(--green-tint), var(--cream-deep));
+  background: linear-gradient(135deg, var(--brand-tint), var(--cream-deep));
   display: flex;
   align-items: center;
   justify-content: center;

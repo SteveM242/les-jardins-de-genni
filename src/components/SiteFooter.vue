@@ -48,7 +48,7 @@ import SocialLinks from "./SocialLinks.vue";
 <style scoped>
 .site-footer {
   position: relative;
-  background: var(--green-dark);
+  background: var(--brand-dark);
   color: #e6f2e8;
   padding: 48px 0 20px;
   margin-top: 60px;

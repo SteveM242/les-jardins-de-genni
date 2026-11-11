@@ -495,9 +495,9 @@ onMounted(async () => {
 .composition {
   margin-bottom: 14px;
   padding: 14px;
-  border: 1.5px solid var(--green);
+  border: 1.5px solid var(--brand);
   border-radius: 12px;
-  background: var(--green-soft);
+  background: var(--brand-soft);
   display: grid;
   gap: 10px;
 }

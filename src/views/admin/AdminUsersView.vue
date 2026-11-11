@@ -329,8 +329,8 @@ th {
   margin-left: 6px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: var(--green-tint);
-  color: var(--green-dark);
+  background: var(--brand-tint);
+  color: var(--brand-dark);
   font-size: 11px;
   font-weight: 700;
 }
@@ -385,7 +385,7 @@ th {
   padding: 10px 14px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--green-soft);
+  background: var(--brand-soft);
 }
 
 .add-admin {

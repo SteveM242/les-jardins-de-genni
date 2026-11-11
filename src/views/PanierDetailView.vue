@@ -296,7 +296,7 @@ function handleAdd(goToCart) {
   margin: 24px 0;
   padding: 20px 22px 22px;
   background: #fff;
-  border: 2px solid var(--green);
+  border: 2px solid var(--brand);
   border-radius: 16px;
 }
 
@@ -319,14 +319,14 @@ function handleAdd(goToCart) {
   gap: 8px;
   padding: 12px 16px;
   margin-bottom: 18px;
-  background: var(--green-soft);
-  border: 1px solid var(--green-tint);
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-tint);
   border-radius: 12px;
 }
 
 .composer-counter.full {
-  background: var(--green-tint);
-  border-color: var(--green);
+  background: var(--brand-tint);
+  border-color: var(--brand);
 }
 
 .composer-counter-text {
@@ -339,7 +339,7 @@ function handleAdd(goToCart) {
 
 .composer-counter-text strong {
   font-size: 18px;
-  color: var(--green-dark);
+  color: var(--brand-dark);
 }
 
 .composer-bar {
@@ -352,7 +352,7 @@ function handleAdd(goToCart) {
 .composer-bar span {
   display: block;
   height: 100%;
-  background: var(--green);
+  background: var(--brand);
   border-radius: 999px;
   transition: width 0.25s ease;
 }
@@ -366,7 +366,7 @@ function handleAdd(goToCart) {
   font-size: 13px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--green-dark);
+  color: var(--brand-dark);
 }
 
 .composer-list {
@@ -394,8 +394,8 @@ function handleAdd(goToCart) {
 }
 
 .composer-list li.on {
-  background: var(--green-soft);
-  border-color: var(--green);
+  background: var(--brand-soft);
+  border-color: var(--brand);
 }
 
 .composer-name {
@@ -475,7 +475,7 @@ function handleAdd(goToCart) {
 }
 
 .back-link:hover {
-  color: var(--green);
+  color: var(--brand);
 }
 
 .panier-detail-grid {
@@ -558,7 +558,7 @@ function handleAdd(goToCart) {
 .panier-detail-price {
   font-size: 22px;
   font-weight: 700;
-  color: var(--green-dark);
+  color: var(--brand-dark);
   margin: 0 0 16px;
 }
 

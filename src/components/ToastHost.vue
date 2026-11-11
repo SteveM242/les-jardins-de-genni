@@ -39,7 +39,7 @@ const toast = useToast();
   gap: 12px;
   padding: 12px 14px;
   border-radius: 10px;
-  background: var(--green-dark);
+  background: var(--brand-dark);
   color: #fff;
   font-size: 14px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);

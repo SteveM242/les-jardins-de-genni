@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref, watch } from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import BrandLogo from "./BrandLogo.vue";
 import { useCart } from "../stores/cart.js";
@@ -10,31 +10,41 @@ const auth = useAuth();
 const route = useRoute();
 const menuOpen = ref(false);
 
-// Le menu compact se referme à chaque changement de page.
+// Le tiroir du menu se referme à chaque changement de page, et avec la touche Échap.
 watch(() => route.fullPath, () => {
   menuOpen.value = false;
 });
 
+function onKey(event) {
+  if (event.key === "Escape") menuOpen.value = false;
+}
+
+// Quand le tiroir est ouvert, la page derrière ne défile plus.
+watch(menuOpen, (open) => {
+  document.body.style.overflow = open ? "hidden" : "";
+});
+
 onMounted(() => {
   if (!auth.state.loaded) auth.fetchMe();
+  window.addEventListener("keydown", onKey);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", onKey);
+  document.body.style.overflow = "";
 });
 </script>
 
 <template>
-  <header class="site-header madras-stripe">
+  <header class="site-header">
     <div class="container site-header-inner">
       <BrandLogo />
 
-      <nav id="main-nav" :class="{ open: menuOpen }" aria-label="Navigation principale">
+      <nav class="main-nav" aria-label="Navigation principale">
         <RouterLink to="/#paniers" class="nav-anchor">Nos paniers</RouterLink>
         <RouterLink to="/produits">À la carte</RouterLink>
         <RouterLink to="/comment-ca-marche">Comment ça marche</RouterLink>
-        <RouterLink to="/a-propos">À propos</RouterLink>
         <RouterLink to="/contact">Contact</RouterLink>
-        <RouterLink to="/composer" class="nav-compose">Composer mon panier</RouterLink>
-        <RouterLink :to="auth.state.customer ? '/compte' : '/compte/connexion'" class="nav-account">
-          {{ auth.state.customer ? "Mon compte" : "Connexion / Mon compte" }}
-        </RouterLink>
       </nav>
 
       <div class="header-actions">
@@ -47,7 +57,7 @@ onMounted(() => {
             <circle cx="12" cy="8" r="4" />
             <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
           </svg>
-          <span class="account-label">{{ auth.state.customer ? auth.state.customer.name.split(" ")[0] : "Mon compte" }}</span>
+          <span class="account-label">{{ auth.state.customer ? auth.state.customer.name.split(" ")[0] : "Connexion" }}</span>
         </RouterLink>
 
         <RouterLink to="/commande" class="cart-link" aria-label="Mon panier">
@@ -56,7 +66,7 @@ onMounted(() => {
             <circle cx="9" cy="19.5" r="1.4" />
             <circle cx="17" cy="19.5" r="1.4" />
           </svg>
-          <span>Panier</span>
+          <span class="cart-text">Panier</span>
           <span v-if="cart.totalItems.value" class="cart-badge" aria-label="articles dans le panier">{{ cart.totalItems.value }}</span>
         </RouterLink>
 
@@ -64,14 +74,41 @@ onMounted(() => {
           type="button"
           class="menu-toggle"
           :aria-expanded="menuOpen"
-          aria-controls="main-nav"
-          aria-label="Menu"
-          @click="menuOpen = !menuOpen"
+          aria-controls="drawer"
+          aria-label="Ouvrir le menu"
+          @click="menuOpen = true"
         >
-          <span aria-hidden="true">{{ menuOpen ? "✕" : "☰" }}</span>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
         </button>
       </div>
     </div>
+
+    <!-- Tiroir du menu (petits écrans) -->
+    <div v-if="menuOpen" class="drawer-backdrop" @click="menuOpen = false"></div>
+    <aside id="drawer" class="drawer" :class="{ open: menuOpen }" :aria-hidden="!menuOpen" aria-label="Menu">
+      <div class="drawer-head">
+        <strong>Menu</strong>
+        <button type="button" class="drawer-close" aria-label="Fermer le menu" @click="menuOpen = false">✕</button>
+      </div>
+      <nav class="drawer-nav" aria-label="Menu mobile">
+        <RouterLink to="/#paniers">Nos paniers</RouterLink>
+        <RouterLink to="/produits">À la carte</RouterLink>
+        <RouterLink to="/composer">Composer mon panier</RouterLink>
+        <RouterLink to="/comment-ca-marche">Comment ça marche</RouterLink>
+        <RouterLink to="/a-propos">À propos</RouterLink>
+        <RouterLink to="/contact">Contact</RouterLink>
+      </nav>
+      <div class="drawer-foot">
+        <RouterLink :to="auth.state.customer ? '/compte' : '/compte/connexion'" class="btn ghost">
+          {{ auth.state.customer ? "Mon compte" : "Connexion / Créer un compte" }}
+        </RouterLink>
+        <RouterLink to="/commande" class="btn primary">
+          Mon panier<template v-if="cart.totalItems.value"> ({{ cart.totalItems.value }})</template>
+        </RouterLink>
+      </div>
+    </aside>
   </header>
 </template>
 
@@ -79,8 +116,8 @@ onMounted(() => {
 .site-header {
   position: sticky;
   top: 0;
-  z-index: 10;
-  background: rgba(251, 246, 232, 0.94);
+  z-index: 50;
+  background: rgba(250, 247, 242, 0.96);
   backdrop-filter: blur(6px);
   border-bottom: 1px solid var(--line);
 }
@@ -88,75 +125,57 @@ onMounted(() => {
 .site-header-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 28px;
   padding: 14px 0;
 }
 
-/* Jamais de libellé coupé sur deux lignes dans l'en-tête. */
 .site-header :deep(.brand-logo),
-nav a,
+.main-nav a,
 .account-link,
 .cart-link {
   white-space: nowrap;
 }
 
-nav {
+.main-nav {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   margin-right: auto;
 }
 
-nav a {
+.main-nav a {
   position: relative;
-  padding: 8px 9px;
+  padding: 8px 12px;
   border-radius: 8px;
   text-decoration: none;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--text);
   transition: color 150ms ease, background-color 150ms ease;
 }
 
-nav a:hover {
-  color: var(--green);
-  background: rgba(31, 122, 63, 0.08);
+.main-nav a:hover {
+  color: var(--brand);
+  background: var(--brand-soft);
 }
 
 /* Page courante : soulignement discret. */
-nav a.router-link-exact-active:not(.nav-compose):not(.nav-anchor)::after {
+.main-nav a.router-link-exact-active:not(.nav-anchor)::after {
   content: "";
   position: absolute;
-  left: 9px;
-  right: 9px;
+  left: 12px;
+  right: 12px;
   bottom: 2px;
   height: 2px;
   border-radius: 2px;
-  background: var(--clay);
-}
-
-/* « Composer mon panier » : la fonction phare, mise en avant sans être un bouton plein. */
-nav a.nav-compose {
-  margin-left: 6px;
-  border: 1.5px solid var(--green);
-  color: var(--green-dark);
-}
-
-nav a.nav-compose:hover,
-nav a.nav-compose.router-link-exact-active {
-  background: var(--green);
-  color: #fff;
-}
-
-.nav-account {
-  display: none;
+  background: var(--brand);
 }
 
 .header-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-left: auto;
 }
 
 .account-link,
@@ -166,7 +185,7 @@ nav a.nav-compose.router-link-exact-active {
   align-items: center;
   gap: 8px;
   height: 40px;
-  padding: 0 12px;
+  padding: 0 14px;
   border-radius: 10px;
   text-decoration: none;
   font-weight: 600;
@@ -175,34 +194,21 @@ nav a.nav-compose.router-link-exact-active {
 }
 
 .account-link {
-  width: 40px;
-  padding: 0;
-  justify-content: center;
   color: var(--text);
 }
 
-/* Le prénom n'est lu que par les lecteurs d'écran : l'icône suffit et gagne de la place. */
-.account-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
 .account-link:hover {
-  background: rgba(31, 122, 63, 0.08);
-  color: var(--green);
+  background: var(--brand-soft);
+  color: var(--brand);
 }
 
 .cart-link {
-  background: var(--green);
+  background: var(--brand);
   color: #fff;
 }
 
 .cart-link:hover {
-  background: var(--green-dark);
+  background: var(--brand-dark);
 }
 
 .cart-badge {
@@ -213,7 +219,7 @@ nav a.nav-compose.router-link-exact-active {
   height: 20px;
   padding: 0 5px;
   border-radius: 999px;
-  background: var(--clay-dark);
+  background: var(--text);
   border: 2px solid var(--cream);
   color: #fff;
   font-size: 11px;
@@ -230,87 +236,132 @@ nav a.nav-compose.router-link-exact-active {
   border: 1.5px solid var(--line);
   border-radius: 10px;
   background: #fff;
-  font-size: 18px;
   cursor: pointer;
   color: var(--text);
+  align-items: center;
+  justify-content: center;
 }
 
-/* Écrans moyens : tout ne tient plus sur une ligne, on passe au menu déroulant. */
-@media (max-width: 1200px) {
+/* Tiroir : caché sur grand écran. */
+.drawer,
+.drawer-backdrop {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .main-nav {
+    display: none;
+  }
+
   .menu-toggle {
     display: inline-flex;
-    align-items: center;
-    justify-content: center;
   }
 
   .site-header-inner {
-    position: relative;
     gap: 12px;
   }
 
-  nav {
-    display: none;
+  /* Le prénom et le mot « Panier » disparaissent : les icônes suffisent. */
+  .account-label,
+  .cart-text {
     position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
-    margin: 0;
-    padding: 6px 0;
-    background: var(--cream);
-    border: 1px solid var(--line);
-    border-radius: 0 0 14px 14px;
-    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.1);
-  }
-
-  nav.open {
-    display: flex;
-  }
-
-  nav a {
-    padding: 14px 20px;
-    border-radius: 0;
-    font-size: 15px;
-  }
-
-  nav a.router-link-exact-active:not(.nav-compose):not(.nav-anchor)::after {
-    left: 20px;
-    right: auto;
-    width: 28px;
-    bottom: 8px;
-  }
-
-  nav a.nav-compose {
-    margin: 8px 16px;
-    justify-content: center;
-    text-align: center;
-    border-radius: 10px;
-  }
-
-  nav .nav-account {
-    display: block;
-    border-top: 1px solid var(--line);
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   .account-link {
-    display: none;
-  }
-
-  .header-actions {
-    margin-left: auto;
-  }
-}
-
-@media (max-width: 480px) {
-  .cart-link span:not(.cart-badge) {
-    display: none;
+    width: 40px;
+    padding: 0;
+    justify-content: center;
   }
 
   .cart-link {
     width: 40px;
     padding: 0;
+    justify-content: center;
+  }
+
+  .drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(42, 33, 25, 0.45);
+    z-index: 60;
+  }
+
+  .drawer {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(340px, 86vw);
+    z-index: 61;
+    background: var(--cream);
+    box-shadow: -12px 0 32px rgba(42, 33, 25, 0.2);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition: transform 220ms ease, visibility 220ms;
+  }
+
+  .drawer.open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .drawer-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--line);
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 18px;
+  }
+
+  .drawer-close {
+    width: 40px;
+    height: 40px;
+    border: 0;
+    background: transparent;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--text);
+  }
+
+  .drawer-nav {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 0;
+    overflow-y: auto;
+  }
+
+  .drawer-nav a {
+    padding: 16px 22px;
+    font-size: 17px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--text);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .drawer-nav a.router-link-exact-active {
+    color: var(--brand);
+    background: var(--brand-soft);
+  }
+
+  .drawer-foot {
+    margin-top: auto;
+    display: grid;
+    gap: 10px;
+    padding: 18px 20px 24px;
+  }
+
+  .drawer-foot .btn {
     justify-content: center;
   }
 }

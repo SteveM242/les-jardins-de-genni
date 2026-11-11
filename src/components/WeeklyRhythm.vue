@@ -71,12 +71,12 @@ onBeforeUnmount(() => observer?.disconnect());
 
 <style scoped>
 .rhythm {
-  background: linear-gradient(135deg, var(--green-dark) 0%, var(--green) 100%);
+  background: linear-gradient(135deg, var(--brand-dark) 0%, var(--brand) 100%);
   color: #fff;
   border-radius: 22px;
   padding: 30px 32px 34px;
   margin: 0 0 36px;
-  box-shadow: 0 14px 34px rgba(19, 80, 43, 0.22);
+  box-shadow: 0 14px 34px rgba(60, 35, 20, 0.22);
   position: relative;
   overflow: hidden;
 }
@@ -138,7 +138,7 @@ onBeforeUnmount(() => observer?.disconnect());
   font-size: 14px;
   font-weight: 700;
   background: #fff;
-  color: var(--green-dark);
+  color: var(--brand-dark);
 }
 
 .rhythm-status.closed {
@@ -191,7 +191,7 @@ onBeforeUnmount(() => observer?.disconnect());
   width: 54px;
   height: 54px;
   border-radius: 16px;
-  background: var(--green-tint);
+  background: var(--brand-tint);
   font-size: 28px;
   margin-bottom: 12px;
 }
@@ -206,7 +206,7 @@ onBeforeUnmount(() => observer?.disconnect());
   font-size: 22px;
   font-weight: 800;
   font-family: "Fraunces", Georgia, serif;
-  color: var(--green-dark);
+  color: var(--brand-dark);
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }

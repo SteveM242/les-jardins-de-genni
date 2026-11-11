@@ -453,7 +453,7 @@ h2 {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
-  color: var(--green-dark);
+  color: var(--brand-dark);
 }
 
 .empty {
@@ -477,7 +477,7 @@ h2 {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--green-soft);
+  background: var(--brand-soft);
 }
 
 .gallery-item.hidden {

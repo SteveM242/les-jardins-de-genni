@@ -290,8 +290,8 @@ h1 {
 }
 
 .chip.active {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--brand);
+  border-color: var(--brand);
   color: #fff;
 }
 
@@ -315,8 +315,8 @@ h1 {
 }
 
 .product-row.selected {
-  border-color: var(--green);
-  background: #f1f8f2;
+  border-color: var(--brand);
+  background: var(--brand-soft);
 }
 
 .product-info {
@@ -461,7 +461,7 @@ h1 {
     bottom: 0;
     z-index: 20;
     padding: 12px 16px;
-    background: var(--green-dark);
+    background: var(--brand-dark);
   }
 
   .mobile-bar-link {
