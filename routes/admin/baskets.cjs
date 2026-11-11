@@ -3,7 +3,8 @@ const { query } = require("../../db.cjs");
 const { numericId } = require("../../lib/params.cjs");
 const { withImageUrl } = require("../../lib/images.cjs");
 const { BASKET_COLUMNS } = require("../../lib/catalogRows.cjs");
-const { cleanText, slugify } = require("../../lib/text.cjs");
+const { slugify } = require("../../lib/text.cjs");
+const { BasketInputError, parseBasketInput } = require("../../lib/basketRules.cjs");
 const { registerImageUpload } = require("./imageUpload.cjs");
 
 const router = express.Router();
@@ -25,44 +26,77 @@ router.get("/", async (_req, res) => {
   res.json({ ok: true, baskets: rows.map((row) => withImageUrl("baskets", row)) });
 });
 
+// Deux paniers ne portent pas le même nom (casse ignorée) : évite deux fiches identiques en vitrine.
+async function nameTaken(name, exceptId) {
+  const { rows } = await query("SELECT 1 FROM baskets WHERE lower(name) = lower($1) AND id <> $2 LIMIT 1", [name, exceptId]);
+  return rows.length > 0;
+}
+
+function sendInvalid(res, err) {
+  if (err instanceof BasketInputError) return res.status(400).json({ ok: false, error: err.message });
+  throw err;
+}
+
 router.post("/", async (req, res) => {
-  const name = cleanText(req.body.name, 120);
-  const price = Number(req.body.price);
-  if (!name || !Number.isFinite(price) || price <= 0) {
-    return res.status(400).json({ ok: false, error: "Le nom et le prix sont obligatoires." });
+  let input;
+  try {
+    input = parseBasketInput(req.body, { partial: false });
+  } catch (err) {
+    return sendInvalid(res, err);
   }
-  const slug = await uniqueSlug(slugify(name));
-  const summary = cleanText(req.body.summary, 500);
-  const items = Array.isArray(req.body.items) ? req.body.items.filter(Boolean) : [];
+  if (await nameTaken(input.name, 0)) {
+    return res.status(409).json({ ok: false, error: "Un panier porte déjà ce nom." });
+  }
+  const slug = await uniqueSlug(slugify(input.name));
+  const items = input.items || [];
 
   const { rows } = await query(
     `INSERT INTO baskets (slug, name, icon, price, summary, details, origin, item_count, items)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ${BASKET_COLUMNS}`,
-    [slug, name, "🧺", price, summary, "", "", items.length, JSON.stringify(items)]
+    [slug, input.name, "🧺", input.price, input.summary || "", input.details || "", input.origin || "", items.length, JSON.stringify(items)]
   );
   res.json({ ok: true, basket: withImageUrl("baskets", rows[0]) });
 });
 
 router.patch("/:id", async (req, res) => {
-  const { name, price, summary, details, origin, active } = req.body;
-  if (price != null && (!Number.isFinite(Number(price)) || Number(price) <= 0)) {
-    return res.status(400).json({ ok: false, error: "Le prix doit être supérieur à 0." });
+  let input;
+  try {
+    input = parseBasketInput(req.body, { partial: true });
+  } catch (err) {
+    return sendInvalid(res, err);
   }
-  const items = Array.isArray(req.body.items) ? req.body.items.filter(Boolean) : null;
+
+  const { rows: current } = await query("SELECT id, items FROM baskets WHERE id = $1", [req.params.id]);
+  if (!current[0]) return res.status(404).json({ ok: false, error: "Panier introuvable." });
+
+  if (input.name && (await nameTaken(input.name, req.params.id))) {
+    return res.status(409).json({ ok: false, error: "Un autre panier porte déjà ce nom." });
+  }
+  // Un panier vide ne se met pas en vente : le client commanderait « rien ».
+  const finalItems = input.items || current[0].items || [];
+  if (input.active === true && finalItems.length === 0) {
+    return res.status(400).json({ ok: false, error: "Ajoutez au moins un article au panier avant de le mettre en vente." });
+  }
+
+  const items = input.items || null;
   const { rows } = await query(
     `UPDATE baskets SET
        name = COALESCE($1, name), price = COALESCE($2, price), summary = COALESCE($3, summary),
        details = COALESCE($4, details), origin = COALESCE($5, origin), active = COALESCE($6, active),
        items = COALESCE($7, items), item_count = COALESCE($8, item_count)
      WHERE id = $9 RETURNING ${BASKET_COLUMNS}`,
-    [name, price, summary, details, origin, active, items ? JSON.stringify(items) : null, items ? items.length : null, req.params.id]
+    [
+      input.name ?? null, input.price ?? null, input.summary ?? null, input.details ?? null, input.origin ?? null,
+      input.active ?? null, items ? JSON.stringify(items) : null, items ? items.length : null, req.params.id
+    ]
   );
   if (!rows[0]) return res.status(404).json({ ok: false, error: "Panier introuvable." });
   res.json({ ok: true, basket: withImageUrl("baskets", rows[0]) });
 });
 
 router.delete("/:id", async (req, res) => {
-  await query("DELETE FROM baskets WHERE id = $1", [req.params.id]);
+  const { rowCount } = await query("DELETE FROM baskets WHERE id = $1", [req.params.id]);
+  if (rowCount === 0) return res.status(404).json({ ok: false, error: "Panier introuvable." });
   res.json({ ok: true });
 });
 

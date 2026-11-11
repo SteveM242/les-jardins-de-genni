@@ -4,6 +4,7 @@ import AdminNav from "../../components/admin/AdminNav.vue";
 import ImageUploader from "../../components/admin/ImageUploader.vue";
 import LoadError from "../../components/LoadError.vue";
 import { useAdminResource } from "../../composables/useAdminResource.js";
+import { useToast } from "../../stores/toast.js";
 
 const { items: baskets, loading, loadError, load, create, update, remove, applyUploaded } = useAdminResource({
   endpoint: "/api/admin/baskets",
@@ -17,12 +18,117 @@ const error = ref("");
 const newBasket = reactive({ name: "", price: "", summary: "" });
 const newItemDraft = reactive({});
 
-const updateBasket = update;
+const toast = useToast();
+
+const MAX_PRICE = 1000;
+const BIG_PRICE_CHANGE = 0.3; // au-delà de 30 % d'écart, on demande confirmation
+
+// Dernières valeurs enregistrées : on y revient si une saisie est refusée ou annulée.
+const saved = new Map();
+function remember(basket) {
+  saved.set(basket.id, {
+    name: basket.name,
+    price: basket.price,
+    summary: basket.summary,
+    details: basket.details,
+    active: basket.active
+  });
+}
+function restore(basket, field) {
+  const before = saved.get(basket.id);
+  if (before) basket[field] = before[field];
+}
+
+function formatEuros(value) {
+  return `${Number(value).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €`;
+}
+
+// Enregistre un champ après contrôle ; remet l'ancienne valeur si c'est refusé, avec un retour visible.
+async function saveField(basket, field) {
+  const before = saved.get(basket.id);
+  let value = basket[field];
+
+  if (field === "name") {
+    value = String(value || "").trim();
+    if (!value) {
+      toast.error("Le nom du panier ne peut pas être vide.");
+      restore(basket, field);
+      return;
+    }
+  }
+  if (field === "price") {
+    value = Number(value);
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error("Le prix doit être supérieur à 0.");
+      restore(basket, field);
+      return;
+    }
+    if (value > MAX_PRICE) {
+      toast.error(`Le prix semble trop élevé (maximum ${MAX_PRICE} €). Vérifiez la valeur saisie.`);
+      restore(basket, field);
+      return;
+    }
+    const old = Number(before?.price);
+    if (old > 0 && Math.abs(value - old) / old > BIG_PRICE_CHANGE) {
+      const ok = confirm(
+        `Le prix de « ${basket.name} » passe de ${formatEuros(old)} à ${formatEuros(value)}.\n\nCe changement est important et sera visible tout de suite par vos client·e·s. Confirmer ?`
+      );
+      if (!ok) {
+        restore(basket, field);
+        return;
+      }
+    }
+  }
+  if (before && before[field] === value) return; // rien n'a changé
+
+  const ok = await update(basket, { [field]: value });
+  if (ok) {
+    remember(basket);
+    toast.success(`« ${basket.name} » enregistré.`);
+  } else {
+    restore(basket, field);
+  }
+}
+
+async function toggleActive(basket, event) {
+  const wanted = event.target.checked;
+  if (!wanted && !confirm(`Retirer « ${basket.name} » de la vente ? Vos client·e·s ne pourront plus le commander.`)) {
+    event.target.checked = true;
+    return;
+  }
+  if (wanted && basket.items.length === 0) {
+    toast.error("Ajoutez au moins un article au panier avant de le mettre en vente.");
+    event.target.checked = false;
+    return;
+  }
+  const ok = await update(basket, { active: wanted });
+  if (ok) {
+    remember(basket);
+    toast.success(wanted ? `« ${basket.name} » est en vente.` : `« ${basket.name} » est retiré de la vente.`);
+  } else {
+    event.target.checked = !wanted;
+  }
+}
+
+async function updateBasket(basket, patch, message) {
+  const ok = await update(basket, patch);
+  if (ok) toast.success(message || `« ${basket.name} » enregistré.`);
+  return ok;
+}
 
 async function addBasket() {
   error.value = "";
-  if (!newBasket.name.trim() || !newBasket.price) {
-    error.value = "Le nom et le prix sont obligatoires.";
+  const price = Number(newBasket.price);
+  if (!newBasket.name.trim()) {
+    error.value = "Le nom du panier est obligatoire.";
+    return;
+  }
+  if (!Number.isFinite(price) || price <= 0) {
+    error.value = "Le prix doit être supérieur à 0.";
+    return;
+  }
+  if (price > MAX_PRICE) {
+    error.value = `Le prix semble trop élevé (maximum ${MAX_PRICE} €). Vérifiez la valeur saisie.`;
     return;
   }
   const result = await create({ ...newBasket }, { prepend: true });
@@ -30,27 +136,58 @@ async function addBasket() {
     error.value = result.error;
     return;
   }
+  remember(result.item);
+  toast.success(`Panier « ${result.item.name} » créé. Ajoutez son contenu puis mettez-le en vente.`);
   newBasket.name = "";
   newBasket.price = "";
   newBasket.summary = "";
 }
 
-function removeBasket(basket) {
-  return remove(basket, `Supprimer définitivement "${basket.name}" ?`);
+async function removeBasket(basket) {
+  const ok = await remove(
+    basket,
+    `Supprimer définitivement « ${basket.name} » ?\n\nLe panier disparaît du site. Les commandes déjà passées gardent leur contenu. Cette action est irréversible.`
+  );
+  if (ok) toast.success(`« ${basket.name} » supprimé.`);
 }
 
-function addItem(basket) {
+async function addItem(basket) {
   const text = (newItemDraft[basket.id] || "").trim();
   if (!text) return;
-  updateBasket(basket, { items: [...basket.items, text] });
-  newItemDraft[basket.id] = "";
+  if (text.length > 80) {
+    toast.error("Un article ne peut pas dépasser 80 caractères.");
+    return;
+  }
+  if (basket.items.some((item) => item.toLowerCase() === text.toLowerCase())) {
+    toast.error(`« ${text} » est déjà dans ce panier.`);
+    return;
+  }
+  if (basket.items.length >= 40) {
+    toast.error("Un panier contient au plus 40 articles.");
+    return;
+  }
+  if (await updateBasket(basket, { items: [...basket.items, text] }, `« ${text} » ajouté.`)) {
+    newItemDraft[basket.id] = "";
+  }
 }
 
-function removeItem(basket, index) {
-  updateBasket(basket, { items: basket.items.filter((_, i) => i !== index) });
+async function removeItem(basket, index) {
+  const item = basket.items[index];
+  // Retirer le dernier article d'un panier en vente le laisserait vide : on le retire aussi de la vente.
+  const lastOnSale = basket.active && basket.items.length === 1;
+  if (lastOnSale && !confirm(`C'est le dernier article : « ${basket.name} » sera aussi retiré de la vente. Continuer ?`)) return;
+  const ok = await updateBasket(
+    basket,
+    { items: basket.items.filter((_, i) => i !== index), ...(lastOnSale ? { active: false } : {}) },
+    `« ${item} » retiré.`
+  );
+  if (ok) remember(basket);
 }
 
-onMounted(load);
+onMounted(async () => {
+  await load();
+  baskets.value.forEach(remember);
+});
 </script>
 
 <template>
@@ -66,15 +203,15 @@ onMounted(load);
       <div class="new-basket-grid">
         <label>
           Nom
-          <input v-model.trim="newBasket.name" placeholder="ex: Panier du mois" />
+          <input v-model.trim="newBasket.name" maxlength="120" placeholder="ex: Panier du mois" />
         </label>
         <label>
           Prix (€)
-          <input v-model.number="newBasket.price" type="number" step="0.5" min="0" placeholder="0.00" />
+          <input v-model.number="newBasket.price" type="number" step="0.01" min="0.01" :max="MAX_PRICE" placeholder="0.00" />
         </label>
         <label class="summary-field">
           Résumé (une phrase)
-          <input v-model.trim="newBasket.summary" placeholder="ex: Un panier de saison, pensé pour..." />
+          <input v-model.trim="newBasket.summary" maxlength="500" placeholder="ex: Un panier de saison, pensé pour..." />
         </label>
         <button type="submit" class="btn primary">+ Créer le panier</button>
       </div>
@@ -96,7 +233,7 @@ onMounted(load);
             <input
               type="checkbox"
               :checked="basket.active"
-              @change="updateBasket(basket, { active: $event.target.checked })"
+              @change="toggleActive(basket, $event)"
             />
             En vente
           </label>
@@ -104,7 +241,7 @@ onMounted(load);
 
         <label>
           Nom
-          <input v-model.trim="basket.name" @change="updateBasket(basket, { name: basket.name })" />
+          <input v-model.trim="basket.name" maxlength="120" required @change="saveField(basket, 'name')" />
         </label>
 
         <label>
@@ -112,33 +249,37 @@ onMounted(load);
           <input
             v-model.number="basket.price"
             type="number"
-            step="0.5"
-            @change="updateBasket(basket, { price: basket.price })"
+            step="0.01"
+            min="0.01"
+            :max="MAX_PRICE"
+            required
+            @change="saveField(basket, 'price')"
           />
         </label>
 
         <label>
           Résumé
-          <textarea v-model.trim="basket.summary" rows="2" @change="updateBasket(basket, { summary: basket.summary })"></textarea>
+          <textarea v-model.trim="basket.summary" rows="2" maxlength="500" @change="saveField(basket, 'summary')"></textarea>
         </label>
 
         <label>
           Description
-          <textarea v-model.trim="basket.details" rows="3" @change="updateBasket(basket, { details: basket.details })"></textarea>
+          <textarea v-model.trim="basket.details" rows="3" maxlength="2000" @change="saveField(basket, 'details')"></textarea>
         </label>
 
         <div class="items-field">
-          <span class="items-label">Contenu du panier ({{ basket.items.length }} articles)</span>
+          <span class="items-label">Contenu du panier ({{ basket.items.length }} article{{ basket.items.length > 1 ? "s" : "" }})</span>
           <div class="items-tags">
             <span v-for="(item, index) in basket.items" :key="index" class="item-tag">
               {{ item }}
               <button type="button" @click="removeItem(basket, index)" aria-label="Retirer">×</button>
             </span>
-            <span v-if="basket.items.length === 0" class="items-empty">Aucun article listé</span>
+            <span v-if="basket.items.length === 0" class="items-empty">Aucun article listé : le panier ne peut pas être mis en vente.</span>
           </div>
           <div class="item-add-row">
             <input
               v-model="newItemDraft[basket.id]"
+              maxlength="80"
               placeholder="ex: Mangues"
               @keyup.enter="addItem(basket)"
             />

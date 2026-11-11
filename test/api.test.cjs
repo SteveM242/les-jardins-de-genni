@@ -7,6 +7,8 @@ let discountRow = null;
 let revokedAdmin = false;
 let orderByCode = { id: 7, order_number: "K7M4QH", name: "Awa", status: "prete" };
 let insertFailures = 0;
+let basketCurrent = { id: 3, items: ["Mangues"] };
+let basketNameTaken = false;
 const imageBase64 = Buffer.from("fake-image-bytes").toString("base64");
 
 // Faux Postgres : répond selon un fragment du SQL, et garde la trace des requêtes.
@@ -30,6 +32,9 @@ installFakeDb(async (text, params = []) => {
     throw Object.assign(new Error("duplicate key"), { code: "23505" });
   }
   if (sql.includes("FROM orders WHERE order_number")) return { rows: orderByCode && params[0] === orderByCode.order_number ? [orderByCode] : [] };
+  if (sql.includes("SELECT id, items FROM baskets WHERE id")) return { rows: basketCurrent ? [basketCurrent] : [] };
+  if (sql.includes("lower(name) = lower")) return { rows: basketNameTaken ? [{ "?column?": 1 }] : [] };
+  if (sql.includes("UPDATE baskets SET")) return { rows: [{ id: 3, name: params[0] || "Panier", price: params[1] || "10.00", active: params[5], items: [] }] };
   if (sql.includes("FROM discount_codes")) return { rows: discountRow ? [discountRow] : [] };
   if (sql.includes("SELECT image FROM products")) {
     return { rows: params[0] === "igname" ? [{ image: `data:image/png;base64,${imageBase64}` }] : [] };
@@ -52,6 +57,8 @@ test.beforeEach(() => {
   discountRow = null;
   revokedAdmin = false;
   insertFailures = 0;
+  basketCurrent = { id: 3, items: ["Mangues"] };
+  basketNameTaken = false;
 });
 
 const adminCookie = () => `admin_token=${signToken({ sub: 1, role: "admin", v: 0 })}`;
@@ -327,4 +334,35 @@ test("une commande reçoit un code de retrait, retiré au sort à nouveau en cas
   assert.equal(res.status, 200);
   assert.match(res.json.orderId, /^[A-HJKMNP-Z2-9]{6}$/);
   assert.equal(calls.filter((c) => c.text.includes("INSERT INTO orders")).length, 3);
+});
+
+test("modifier un panier : valeurs invalides refusées avant toute écriture", async () => {
+  const patch = (body) => app.request("PATCH", "/api/admin/baskets/3", { cookie: adminCookie(), body });
+  for (const body of [{ name: "  " }, { price: 5000 }, { price: "" }, { items: [{ x: 1 }] }, { summary: "x".repeat(501) }]) {
+    assert.equal((await patch(body)).status, 400, JSON.stringify(body).slice(0, 40));
+  }
+  assert.ok(!calls.some((c) => c.text.includes("UPDATE baskets SET")));
+});
+
+test("modifier un panier : un nom déjà pris est refusé, un panier vide ne se met pas en vente", async () => {
+  basketNameTaken = true;
+  const dup = await app.request("PATCH", "/api/admin/baskets/3", { cookie: adminCookie(), body: { name: "Panier Découverte" } });
+  assert.equal(dup.status, 409);
+  basketNameTaken = false;
+  basketCurrent = { id: 3, items: [] };
+  const empty = await app.request("PATCH", "/api/admin/baskets/3", { cookie: adminCookie(), body: { active: true } });
+  assert.equal(empty.status, 400);
+  assert.match(empty.json.error, /au moins un article/);
+  const withItem = await app.request("PATCH", "/api/admin/baskets/3", { cookie: adminCookie(), body: { active: true, items: ["Mangues"] } });
+  assert.equal(withItem.status, 200);
+});
+
+test("modifier un panier : une modification valide est enregistrée nettoyée, un panier inconnu répond 404", async () => {
+  const ok = await app.request("PATCH", "/api/admin/baskets/3", { cookie: adminCookie(), body: { name: "  Panier du mois ", price: "12.456" } });
+  assert.equal(ok.status, 200);
+  const update = calls.find((c) => c.text.includes("UPDATE baskets SET"));
+  assert.equal(update.params[0], "Panier du mois");
+  assert.equal(update.params[1], 12.46);
+  basketCurrent = null;
+  assert.equal((await app.request("PATCH", "/api/admin/baskets/3", { cookie: adminCookie(), body: { price: 5 } })).status, 404);
 });

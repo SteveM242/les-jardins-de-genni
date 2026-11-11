@@ -91,3 +91,35 @@ test("le code se saisit avec ou sans tiret, en minuscules", () => {
   assert.equal(formatOrderCode("K7M4QH"), "K7M-4QH");
   assert.equal(formatOrderCode("A1B2C3D4"), "A1B2C3D4");
 });
+
+const { parseBasketInput, BasketInputError, LIMITS } = require("../lib/basketRules.cjs");
+
+test("panier : les champs valides sont nettoyés, le prix arrondi, le contenu dédoublonné", () => {
+  const out = parseBasketInput(
+    { name: "  Panier du mois ", price: "12.456", summary: " Un panier ", items: [" Mangues ", "mangues", "", "Igname"], active: true },
+    { partial: false }
+  );
+  assert.deepEqual(out, { name: "Panier du mois", price: 12.46, summary: "Un panier", items: ["Mangues", "Igname"], active: true });
+});
+
+test("panier : nom vide, prix nul ou excessif, textes trop longs et contenu invalide sont refusés", () => {
+  const bad = (body, partial = true) => assert.throws(() => parseBasketInput(body, { partial }), BasketInputError);
+  bad({ name: "   " });
+  bad({ price: "" });
+  bad({ price: 0 });
+  bad({ price: -3 });
+  bad({ price: "abc" });
+  bad({ price: LIMITS.maxPrice + 1 });
+  bad({ summary: "x".repeat(LIMITS.summary + 1) });
+  bad({ items: "Mangues" });
+  bad({ items: [{ nom: "x" }] });
+  bad({ items: ["x".repeat(LIMITS.itemName + 1)] });
+  bad({ items: Array.from({ length: LIMITS.itemCount + 1 }, (_, i) => `a${i}`) });
+  bad({ active: "oui" });
+  bad({ name: "Sans prix" }, false);
+});
+
+test("panier : une modification partielle ne contrôle que les champs fournis", () => {
+  assert.deepEqual(parseBasketInput({ active: false }, { partial: true }), { active: false });
+  assert.deepEqual(parseBasketInput({ price: null, name: undefined }, { partial: true }), {});
+});
